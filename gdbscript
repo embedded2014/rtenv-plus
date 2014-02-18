@@ -1,0 +1,5 @@
+shell rm -f gdb.txt
+file main.elf
+target remote :3333
+set debug timestamp on
+set logging on
