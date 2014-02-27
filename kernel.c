@@ -714,13 +714,16 @@ void _write(struct task_control_block *task, struct task_control_block *tasks, s
 }
 
 int
-_mknod(struct file **file_ptr, int dev, struct memory_pool *memory_pool)
+_mknod(int fd, int driver_pid, struct file *files[], int dev,
+       struct memory_pool *memory_pool)
 {
 	switch(dev) {
 	case S_IFIFO:
-		return fifo_init(file_ptr, memory_pool);
+		return fifo_init(fd, driver_pid, files, memory_pool);
 	case S_IMSGQ:
-		return mq_init(file_ptr, memory_pool);
+		return mq_init(fd, driver_pid, files, memory_pool);
+	case S_IFBLK:
+	    return block_init(fd, driver_pid, files, memory_pool);
 	default:
 		return -1;
 	}
@@ -762,7 +765,7 @@ int main()
 
 	/* Initialize fifos */
 	for (i = 0; i <= PATHSERVER_FD; i++)
-		_mknod(&files[i], S_IFIFO, &memory_pool);
+		_mknod(i, -1, files, S_IFIFO, &memory_pool);
 
 	/* Initialize ready lists */
 	for (i = 0; i <= PRIORITY_LIMIT; i++)
@@ -844,7 +847,9 @@ int main()
 			} break;
 		case 0x8: /* mknod */
 			tasks[current_task].stack->r0 =
-				_mknod(&files[tasks[current_task].stack->r0],
+				_mknod(tasks[current_task].stack->r0,
+				       tasks[current_task].pid,
+				       files,
 					   tasks[current_task].stack->r2,
 					   &memory_pool);
 			break;

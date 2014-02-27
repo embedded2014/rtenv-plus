@@ -14,7 +14,8 @@ int mq_open(const char *name, int oflag)
 }
 
 int
-mq_init(struct file **file_ptr, struct memory_pool *memory_pool)
+mq_init(int fd, int driver_pid, struct file *files[],
+        struct memory_pool *memory_pool)
 {
     struct pipe_ringbuffer *pipe;
 
@@ -29,7 +30,7 @@ mq_init(struct file **file_ptr, struct memory_pool *memory_pool)
 	pipe->file.writable = mq_writable;
 	pipe->file.read = mq_read;
 	pipe->file.write = mq_write;
-    *file_ptr = &pipe->file;
+    files[fd] = &pipe->file;
     return 0;
 }
 

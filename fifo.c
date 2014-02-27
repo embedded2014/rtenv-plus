@@ -12,7 +12,8 @@ int mkfifo(const char *pathname, int mode)
 }
 
 int
-fifo_init(struct file **file_ptr, struct memory_pool *memory_pool)
+fifo_init(int fd, int driver_pid, struct file *files[],
+          struct memory_pool *memory_pool)
 {
     struct pipe_ringbuffer *pipe;
 
@@ -27,7 +28,7 @@ fifo_init(struct file **file_ptr, struct memory_pool *memory_pool)
 	pipe->file.writable = fifo_writable;
 	pipe->file.read = fifo_read;
 	pipe->file.write = fifo_write;
-    *file_ptr = &pipe->file;
+    files[fd] = &pipe->file;
     return 0;
 }
 

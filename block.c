@@ -161,7 +161,8 @@ int block_request_write (struct block *block, struct task_control_block *task)
     return block->transfer_len;
 }
 
-int block_init(struct file **file_ptr, struct memory_pool *memory_pool)
+int block_init(int fd, int driver_pid, struct file *files[],
+               struct memory_pool *memory_pool)
 {
     struct block *block;
 
@@ -170,13 +171,15 @@ int block_init(struct file **file_ptr, struct memory_pool *memory_pool)
     if (!block)
         return -1;
 
+    block->driver_pid = driver_pid;
+    block->driver_file = files[driver_pid];
     block->request_pid = 0;
     block->buzy = 0;
 	block->file.readable = block_readable;
 	block->file.writable = block_writable;
 	block->file.read = block_read;
 	block->file.write = block_write;
-    *file_ptr = &block->file;
+    files[fd] = &block->file;
     return 0;
 }
 

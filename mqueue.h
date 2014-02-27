@@ -4,7 +4,8 @@
 #include "file.h"
 #include "memory-pool.h"
 
-int mq_init(struct file **file_ptr, struct memory_pool *memory_pool);
+int mq_init(int fd, int driver_pid, struct file *files[],
+            struct memory_pool *memory_pool);
 int mq_open(const char *name, int oflag);
 int mq_readable (struct file *file, char *buf, size_t size,
                  struct task_control_block *task);
