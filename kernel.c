@@ -672,11 +672,13 @@ void _read(struct task_control_block *task, struct task_control_block *tasks, si
 	}
 	else {
 		struct file *file = files[task->stack->r0];
+		char *buf = (char *)task->stack->r1;
+		size_t size = task->stack->r2;
 
-		if (file->readable(file, task)) {
+		if (file->readable(file, buf, size, task)) {
 			size_t i;
 
-			file->read(file, task);
+			file->read(file, buf, size, task);
 
 			/* Unblock any waiting writes */
 			for (i = 0; i < task_count; i++)
@@ -695,11 +697,13 @@ void _write(struct task_control_block *task, struct task_control_block *tasks, s
 	}
 	else {
 		struct file *file = files[task->stack->r0];
+		char *buf = (char *)task->stack->r1;
+		size_t size = task->stack->r2;
 
-		if (file->writable(file, task)) {
+		if (file->writable(file, buf, size, task)) {
 			size_t i;
 
-			file->write(file, task);
+			file->write(file, buf, size, task);
 
 			/* Unblock any waiting reads */
 			for (i = 0; i < task_count; i++)

@@ -32,7 +32,7 @@ fifo_init(struct file **file_ptr, struct memory_pool *memory_pool)
 }
 
 int
-fifo_readable (struct file *file,
+fifo_readable (struct file *file, char *buf, size_t size,
 			   struct task_control_block *task)
 {
 	/* Trying to read too much */
@@ -53,7 +53,7 @@ fifo_readable (struct file *file,
 }
 
 int
-fifo_writable (struct file *file,
+fifo_writable (struct file *file, char *buf, size_t size,
 			   struct task_control_block *task)
 {
 	struct pipe_ringbuffer *pipe =
@@ -74,11 +74,10 @@ fifo_writable (struct file *file,
 }
 
 int
-fifo_read (struct file *file,
+fifo_read (struct file *file, char *buf, size_t size,
 		   struct task_control_block *task)
 {
 	size_t i;
-	char *buf = (char*)task->stack->r1;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
@@ -90,11 +89,10 @@ fifo_read (struct file *file,
 }
 
 int
-fifo_write (struct file *file,
+fifo_write (struct file *file, char *buf, size_t size,
 			struct task_control_block *task)
 {
 	size_t i;
-	const char *buf = (const char*)task->stack->r1;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 

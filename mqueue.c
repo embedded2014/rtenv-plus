@@ -34,7 +34,7 @@ mq_init(struct file **file_ptr, struct memory_pool *memory_pool)
 }
 
 int
-mq_readable (struct file *file,
+mq_readable (struct file *file, char *buf, size_t size,
 			 struct task_control_block *task)
 {
 	size_t msg_len;
@@ -60,7 +60,7 @@ mq_readable (struct file *file,
 }
 
 int
-mq_writable (struct file *file,
+mq_writable (struct file *file, char *buf, size_t size,
 			 struct task_control_block *task)
 {
 	size_t total_len = sizeof(size_t) + task->stack->r2;
@@ -82,12 +82,11 @@ mq_writable (struct file *file,
 }
 
 int
-mq_read (struct file *file,
+mq_read (struct file *file, char *buf, size_t size,
 		 struct task_control_block *task)
 {
 	size_t msg_len;
 	size_t i;
-	char *buf = (char*)task->stack->r1;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
@@ -103,11 +102,10 @@ mq_read (struct file *file,
 }
 
 int
-mq_write (struct file *file,
+mq_write (struct file *file, char *buf, size_t size,
 		  struct task_control_block *task)
 {
 	size_t i;
-	const char *buf = (const char*)task->stack->r1;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
