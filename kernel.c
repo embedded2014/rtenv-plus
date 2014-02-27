@@ -1,3 +1,4 @@
+#include "kconfig.h"
 #include "stm32f10x.h"
 #include "stm32_p103.h"
 #include "RTOSConfig.h"
@@ -7,64 +8,12 @@
 #include <stddef.h>
 #include <ctype.h>
 #include <string.h>
-
-#define container_of(ptr, type, member) \
-    ((type *)(((void *)ptr) - offsetof(type, member)))
-
-void *memcpy(void *dest, const void *src, size_t n);
-
-int strcmp(const char *a, const char *b) __attribute__ ((naked));
-int strcmp(const char *a, const char *b)
-{
-	asm(
-        "strcmp_lop:                \n"
-        "   ldrb    r2, [r0],#1     \n"
-        "   ldrb    r3, [r1],#1     \n"
-        "   cmp     r2, #1          \n"
-        "   it      hi              \n"
-        "   cmphi   r2, r3          \n"
-        "   beq     strcmp_lop      \n"
-		"	sub     r0, r2, r3  	\n"
-        "   bx      lr              \n"
-		:::
-	);
-}
-
-int strncmp(const char *a, const char *b, size_t n)
-{
-	size_t i;
-
-	for (i = 0; i < n; i++)
-		if (a[i] != b[i])
-			return a[i] - b[i];
-
-	return 0;
-}
-
-size_t strlen(const char *s) __attribute__ ((naked));
-size_t strlen(const char *s)
-{
-	asm(
-		"	sub  r3, r0, #1			\n"
-        "strlen_loop:               \n"
-		"	ldrb r2, [r3, #1]!		\n"
-		"	cmp  r2, #0				\n"
-        "   bne  strlen_loop        \n"
-		"	sub  r0, r3, r0			\n"
-		"	bx   lr					\n"
-		:::
-	);
-}
-
-void puts(char *s)
-{
-	while (*s) {
-		while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)
-			/* wait */ ;
-		USART_SendData(USART2, *s);
-		s++;
-	}
-}
+#include "string.h"
+#include "task.h"
+#include "memory-pool.h"
+#include "pipe.h"
+#include "fifo.h"
+#include "mqueue.h"
 
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
@@ -74,31 +23,6 @@ void puts(char *s)
 #define MAX_ENVCOUNT 30
 #define MAX_ENVNAME 15
 #define MAX_ENVVALUE 127
-#define STACK_SIZE 512 /* Size of task stacks in words */
-#define TASK_LIMIT 8  /* Max number of tasks we can handle */
-#define PIPE_BUF   64 /* Size of largest atomic pipe message */
-#define PATH_MAX   32 /* Longest absolute path */
-#define PIPE_LIMIT (TASK_LIMIT * 2)
-#define FREG_LIMIT 16 /* Other types file limit */
-#define FILE_LIMIT (PIPE_LIMIT + FREG_LIMIT)
-#define MEM_LIMIT (sizeof(struct pipe_ringbuffer) * PIPE_LIMIT)
-
-#define PATHSERVER_FD (TASK_LIMIT + 3) 
-	/* File descriptor of pipe to pathserver */
-
-#define PRIORITY_DEFAULT 20
-#define PRIORITY_LIMIT (PRIORITY_DEFAULT * 2 - 1)
-
-#define TASK_READY      0
-#define TASK_WAIT_READ  1
-#define TASK_WAIT_WRITE 2
-#define TASK_WAIT_INTR  3
-#define TASK_WAIT_TIME  4
-
-#define S_IFIFO 1
-#define S_IMSGQ 2
-
-#define O_CREAT 4
 
 /*Global Variables*/
 char next_line[3] = {'\n','\r','\0'};
@@ -155,38 +79,7 @@ typedef struct {
 evar_entry env_var[MAX_ENVCOUNT];
 int env_count = 0;
 
-/* Stack struct of user thread, see "Exception entry and return" */
-struct user_thread_stack {
-	unsigned int r4;
-	unsigned int r5;
-	unsigned int r6;
-	unsigned int r7;
-	unsigned int r8;
-	unsigned int r9;
-	unsigned int r10;
-	unsigned int fp;
-	unsigned int _lr;	/* Back to system calls or return exception */
-	unsigned int _r7;	/* Backup from isr */
-	unsigned int r0;
-	unsigned int r1;
-	unsigned int r2;
-	unsigned int r3;
-	unsigned int ip;
-	unsigned int lr;	/* Back to user thread code */
-	unsigned int pc;
-	unsigned int xpsr;
-	unsigned int stack[STACK_SIZE - 18];
-};
 
-/* Task Control Block */
-struct task_control_block {
-    struct user_thread_stack *stack;
-    int pid;
-    int status;
-    int priority;
-    struct task_control_block **prev;
-    struct task_control_block  *next;
-};
 struct task_control_block tasks[TASK_LIMIT];
 
 /* 
@@ -240,51 +133,6 @@ void pathserver()
 			}
 		}
 	}
-}
-
-int mkfile(const char *pathname, int mode, int dev)
-{
-	size_t plen = strlen(pathname)+1;
-	char buf[4+4+PATH_MAX+4];
-	(void) mode;
-
-	*((unsigned int *)buf) = 0;
-	*((unsigned int *)(buf + 4)) = plen;
-	memcpy(buf + 4 + 4, pathname, plen);
-	*((int *)(buf + 4 + 4 + plen)) = dev;
-	write(PATHSERVER_FD, buf, 4 + 4 + plen + 4);
-
-	return 0;
-}
-
-int mkfifo(const char *pathname, int mode)
-{
-	mkfile(pathname, mode, S_IFIFO);
-	return 0;
-}
-
-int open(const char *pathname, int flags)
-{
-	unsigned int replyfd = getpid() + 3;
-	size_t plen = strlen(pathname) + 1;
-	unsigned int fd = -1;
-	char buf[4 + 4 + PATH_MAX];
-	(void) flags;
-
-	*((unsigned int *)buf) = replyfd;
-	*((unsigned int *)(buf + 4)) = plen;
-	memcpy(buf + 4 + 4, pathname, plen);
-	write(PATHSERVER_FD, buf, 4 + 4 + plen);
-	read(replyfd, &fd, 4);
-
-	return fd;
-}
-
-int mq_open(const char *name, int oflag)
-{
-	if (oflag & O_CREAT)
-		mkfile(name, 0, S_IMSGQ);
-	return open(name, 0);
 }
 
 void serialout(USART_TypeDef* uart, unsigned int intr)
@@ -812,117 +660,6 @@ void first()
 	while(1);
 }
 
-struct memory_pool {
-    int offset;
-    size_t size;
-    char *memory;
-};
-
-void memory_pool_init(struct memory_pool *pool, size_t size, char *memory)
-{
-    pool->offset = 0;
-    pool->size = size;
-    pool->memory = memory;
-}
-
-void *memory_pool_alloc(struct memory_pool *pool, size_t size)
-{
-    if (pool->offset + size <= pool->size) {
-        char *alloc = pool->memory + pool->offset;
-        pool->offset += size;
-        return alloc;
-    }
-
-    return NULL;
-}
-
-struct file {
-	int (*readable) (struct file*, struct task_control_block*);
-	int (*writable) (struct file*, struct task_control_block*);
-	int (*read) (struct file*, struct task_control_block*);
-	int (*write) (struct file*, struct task_control_block*);
-};
-
-struct pipe_ringbuffer {
-    struct file file;
-	int start;
-	int end;
-	char data[PIPE_BUF];
-};
-
-#define RB_PUSH(rb, size, v) do { \
-		(rb).data[(rb).end] = (v); \
-		(rb).end++; \
-		if ((rb).end >= size) (rb).end = 0; \
-	} while (0)
-
-#define RB_POP(rb, size, v) do { \
-		(v) = (rb).data[(rb).start]; \
-		(rb).start++; \
-		if ((rb).start >= size) (rb).start = 0; \
-	} while (0)
-
-#define RB_PEEK(rb, size, v, i) do { \
-		int _counter = (i); \
-		int _src_index = (rb).start; \
-		int _dst_index = 0; \
-		while (_counter--) { \
-			((char*)&(v))[_dst_index++] = (rb).data[_src_index++]; \
-			if (_src_index >= size) _src_index = 0; \
-		} \
-	} while (0)
-
-#define RB_LEN(rb, size) (((rb).end - (rb).start) + \
-	(((rb).end < (rb).start) ? size : 0))
-
-#define PIPE_PUSH(pipe, v) RB_PUSH((pipe), PIPE_BUF, (v))
-#define PIPE_POP(pipe, v)  RB_POP((pipe), PIPE_BUF, (v))
-#define PIPE_PEEK(pipe, v, i)  RB_PEEK((pipe), PIPE_BUF, (v), (i))
-#define PIPE_LEN(pipe)     (RB_LEN((pipe), PIPE_BUF))
-
-unsigned int *init_task(unsigned int *stack, void (*start)())
-{
-	stack += STACK_SIZE - 9; /* End of stack, minus what we're about to push */
-	stack[8] = (unsigned int)start;
-	return stack;
-}
-
-int
-task_push (struct task_control_block **list, struct task_control_block *item)
-{
-	if (list && item) {
-		/* Remove itself from original list */
-		if (item->prev)
-			*(item->prev) = item->next;
-		if (item->next)
-			item->next->prev = item->prev;
-		/* Insert into new list */
-		while (*list) list = &((*list)->next);
-		*list = item;
-		item->prev = list;
-		item->next = NULL;
-		return 0;
-	}
-	return -1;
-}
-
-struct task_control_block*
-task_pop (struct task_control_block **list)
-{
-	if (list) {
-		struct task_control_block *item = *list;
-		if (item) {
-			*list = item->next;
-			if (item->next)
-				item->next->prev = list;
-			item->prev = NULL;
-			item->next = NULL;
-			return item;
-		}
-	}
-	return NULL;
-}
-
 void _read(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[]);
 void _write(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[]);
 
@@ -970,206 +707,6 @@ void _write(struct task_control_block *task, struct task_control_block *tasks, s
 					_read(&tasks[i], tasks, task_count, files);
 		}
 	}
-}
-
-int
-fifo_readable (struct file *file,
-			   struct task_control_block *task)
-{
-	/* Trying to read too much */
-	if (task->stack->r2 > PIPE_BUF) {
-		task->stack->r0 = -1;
-		return 0;
-	}
-
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	if ((size_t)PIPE_LEN(*pipe) < task->stack->r2) {
-		/* Trying to read more than there is: block */
-		task->status = TASK_WAIT_READ;
-		return 0;
-	}
-	return 1;
-}
-
-int
-mq_readable (struct file *file,
-			 struct task_control_block *task)
-{
-	size_t msg_len;
-
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* Trying to read too much */
-	if ((size_t)PIPE_LEN(*pipe) < sizeof(size_t)) {
-		/* Nothing to read */
-		task->status = TASK_WAIT_READ;
-		return 0;
-	}
-
-	PIPE_PEEK(*pipe, msg_len, 4);
-
-	if (msg_len > task->stack->r2) {
-		/* Trying to read more than buffer size */
-		task->stack->r0 = -1;
-		return 0;
-	}
-	return 1;
-}
-
-int
-fifo_read (struct file *file,
-		   struct task_control_block *task)
-{
-	size_t i;
-	char *buf = (char*)task->stack->r1;
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* Copy data into buf */
-	for (i = 0; i < task->stack->r2; i++) {
-		PIPE_POP(*pipe, buf[i]);
-	}
-	return task->stack->r2;
-}
-
-int
-mq_read (struct file *file,
-		 struct task_control_block *task)
-{
-	size_t msg_len;
-	size_t i;
-	char *buf = (char*)task->stack->r1;
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* Get length */
-	for (i = 0; i < 4; i++) {
-		PIPE_POP(*pipe, *(((char*)&msg_len)+i));
-	}
-	/* Copy data into buf */
-	for (i = 0; i < msg_len; i++) {
-		PIPE_POP(*pipe, buf[i]);
-	}
-	return msg_len;
-}
-
-int
-fifo_writable (struct file *file,
-			   struct task_control_block *task)
-{
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* If the write would be non-atomic */
-	if (task->stack->r2 > PIPE_BUF) {
-		task->stack->r0 = -1;
-		return 0;
-	}
-	/* Preserve 1 byte to distiguish empty or full */
-	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < task->stack->r2) {
-		/* Trying to write more than we have space for: block */
-		task->status = TASK_WAIT_WRITE;
-		return 0;
-	}
-	return 1;
-}
-
-int
-mq_writable (struct file *file,
-			 struct task_control_block *task)
-{
-	size_t total_len = sizeof(size_t) + task->stack->r2;
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* If the write would be non-atomic */
-	if (total_len > PIPE_BUF) {
-		task->stack->r0 = -1;
-		return 0;
-	}
-	/* Preserve 1 byte to distiguish empty or full */
-	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < total_len) {
-		/* Trying to write more than we have space for: block */
-		task->status = TASK_WAIT_WRITE;
-		return 0;
-	}
-	return 1;
-}
-
-int
-fifo_write (struct file *file,
-			struct task_control_block *task)
-{
-	size_t i;
-	const char *buf = (const char*)task->stack->r1;
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* Copy data into pipe */
-	for (i = 0; i < task->stack->r2; i++)
-		PIPE_PUSH(*pipe,buf[i]);
-	return task->stack->r2;
-}
-
-int
-mq_write (struct file *file,
-		  struct task_control_block *task)
-{
-	size_t i;
-	const char *buf = (const char*)task->stack->r1;
-	struct pipe_ringbuffer *pipe =
-	    container_of(file, struct pipe_ringbuffer, file);
-
-	/* Copy count into pipe */
-	for (i = 0; i < sizeof(size_t); i++)
-		PIPE_PUSH(*pipe,*(((char*)&task->stack->r2)+i));
-	/* Copy data into pipe */
-	for (i = 0; i < task->stack->r2; i++)
-		PIPE_PUSH(*pipe,buf[i]);
-	return task->stack->r2;
-}
-
-int
-fifo_init(struct file **file_ptr, struct memory_pool *memory_pool)
-{
-    struct pipe_ringbuffer *pipe;
-
-    pipe = memory_pool_alloc(memory_pool, sizeof(struct pipe_ringbuffer));
-
-    if (!pipe)
-        return -1;
-
-    pipe->start = 0;
-    pipe->end = 0;
-	pipe->file.readable = fifo_readable;
-	pipe->file.writable = fifo_writable;
-	pipe->file.read = fifo_read;
-	pipe->file.write = fifo_write;
-    *file_ptr = &pipe->file;
-    return 0;
-}
-
-int
-mq_init(struct file **file_ptr, struct memory_pool *memory_pool)
-{
-    struct pipe_ringbuffer *pipe;
-
-    pipe = memory_pool_alloc(memory_pool, sizeof(struct pipe_ringbuffer));
-
-    if (!pipe)
-        return -1;
-
-    pipe->start = 0;
-    pipe->end = 0;
-	pipe->file.readable = mq_readable;
-	pipe->file.writable = mq_writable;
-	pipe->file.read = mq_read;
-	pipe->file.write = mq_write;
-    *file_ptr = &pipe->file;
-    return 0;
 }
 
 int
