@@ -11,6 +11,7 @@
 #define FREG_LIMIT 16 /* Other types file limit */
 #define FILE_LIMIT (PIPE_LIMIT + FREG_LIMIT)
 #define MEM_LIMIT (sizeof(struct pipe_ringbuffer) * PIPE_LIMIT)
+#define BLOCK_BUF 64
 
 #define PRIORITY_DEFAULT 20
 #define PRIORITY_LIMIT (PRIORITY_DEFAULT * 2 - 1)
