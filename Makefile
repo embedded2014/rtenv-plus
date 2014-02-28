@@ -12,15 +12,18 @@ STM32_LIB=$(LIBDIR)/libraries/STM32F10x_StdPeriph_Driver
 
 CMSIS_PLAT_SRC = $(CMSIS_LIB)/DeviceSupport/$(VENDOR)/$(PLAT)
 
+ROMDIR = rom0
+
 all: main.bin
 
 main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 			utils.h string.c string.h task.c task.h \
 			memory-pool.c memory-pool.c file.c file.h pipe.h fifo.c fifo.h \
-			mqueue.c mqueue.h block.c block.h path.c path.h
+			mqueue.c mqueue.h block.c block.h path.c path.h \
+			$(ROMDIR).o
 	$(CROSS_COMPILE)gcc \
 		-DUSER_NAME=\"$(USER)\" \
-		-Wl,-Tmain.ld -nostartfiles \
+		-Wl,-Tmain.ld,-Map=main.map -nostartfiles \
 		-I . \
 		-I$(LIBDIR)/libraries/CMSIS/CM3/CoreSupport \
 		-I$(LIBDIR)/libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x \
@@ -45,9 +48,20 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 		stm32_p103.c \
 		kernel.c \
 		memcpy.s string.c task.c memory-pool.c file.c fifo.c mqueue.c block.c \
-		path.c
+		path.c \
+		$(ROMDIR).o
 	$(CROSS_COMPILE)objcopy -Obinary main.elf main.bin
 	$(CROSS_COMPILE)objdump -S main.elf > main.list
+
+$(ROMDIR).o: $(ROMDIR).bin
+	$(CROSS_COMPILE)objcopy -I binary -O elf32-littlearm -B arm \
+		--prefix-sections '.rom' $< $@
+
+$(ROMDIR).bin: $(ROMDIR) mkromfs
+	./mkromfs -d $< -o $@
+
+$(ROMDIR):
+	mkdir -p $(ROMDIR)
 
 mkromfs: mkromfs.c
 	gcc -o mkromfs mkromfs.c
@@ -97,5 +111,5 @@ qemuauto_remote: main.bin gdbscript
 	sleep 5
 
 clean:
-	rm -f *.elf *.bin *.list
-	rm -f mkromfs
+	rm -f *.elf *.bin *.list *.map *.o
+	rm -rf mkromfs
