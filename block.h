@@ -27,6 +27,7 @@ struct block_request {
     int task;
     int fd;
     size_t size;
+    int pos;
 };
 
 int block_init(int fd, int driver_pid, struct file *files[],

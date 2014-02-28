@@ -71,7 +71,8 @@ int block_request_readable (struct block *block, struct task_control_block *task
             .cmd = BLOCK_CMD_READ,
             .task = task->pid,
             .fd = task->stack->r0,
-            .size = len
+            .size = len,
+            .pos = block->pos
         };
 
         if (driver->writable(driver, (char *)&request, sizeof(request), task)) {
@@ -113,7 +114,8 @@ int block_request_writable (struct block *block, struct task_control_block *task
             .cmd = BLOCK_CMD_WRITE,
             .task = task->pid,
             .fd = task->stack->r0,
-            .size = len
+            .size = len,
+            .pos = block->pos
         };
 
         if (driver->writable(driver, (char *)&request, sizeof(request), task)) {
