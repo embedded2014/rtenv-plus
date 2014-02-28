@@ -141,6 +141,8 @@ int block_request_read (struct block *block, struct task_control_block *task)
     if (block->transfer_len > 0) {
         char *buf = (char *)task->stack->r1;
         memcpy(buf, block->buf, block->transfer_len);
+
+        block->pos += block->transfer_len;
     }
 
     block->request_pid = 0;
@@ -149,6 +151,10 @@ int block_request_read (struct block *block, struct task_control_block *task)
 
 int block_request_write (struct block *block, struct task_control_block *task)
 {
+    if (block->transfer_len > 0) {
+        block->pos += block->transfer_len;
+    }
+
     block->request_pid = 0;
     return block->transfer_len;
 }
@@ -167,6 +173,7 @@ int block_init(int fd, int driver_pid, struct file *files[],
     block->driver_file = files[driver_pid];
     block->request_pid = 0;
     block->buzy = 0;
+    block->pos = 0;
 	block->file.readable = block_readable;
 	block->file.writable = block_writable;
 	block->file.read = block_read;
