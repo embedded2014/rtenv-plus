@@ -4,6 +4,9 @@
 #include "file.h"
 #include "memory-pool.h"
 
+#define BLOCK_CMD_READ 1
+#define BLOCK_CMD_WRITE 2
+
 struct block {
     struct file file;
     int driver_pid;
@@ -17,6 +20,13 @@ struct block {
 
     /* response */
     size_t transfer_len;
+};
+
+struct block_request {
+    int cmd;
+    int task;
+    int fd;
+    size_t size;
 };
 
 int block_init(int fd, int driver_pid, struct file *files[],

@@ -4,16 +4,6 @@
 #include "string.h"
 #include "syscall.h"
 
-#define BLOCK_CMD_READ 1
-#define BLOCK_CMD_WRITE 2
-
-struct block_request {
-    int cmd;
-    int task;
-    int fd;
-    size_t size;
-};
-
 struct block_response {
     int transfer_len;
     char *buf;
