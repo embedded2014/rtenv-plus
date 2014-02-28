@@ -27,6 +27,12 @@ struct entry {
     uint8_t name[PATH_LEN + 1];
 };
 
+size_t fwrite_off(const void *ptr, size_t size, size_t nmemb, FILE *stream, off_t off)
+{
+    fseek(stream, off, SEEK_SET);
+    return fwrite(ptr, size, nmemb, stream);
+}
+
 int procfile(const char *filename, char *fullpath, FILE *outfile)
 {
     FILE *infile;
@@ -84,7 +90,7 @@ int procdir(const char *dirname, char *fullpath, FILE *outfile)
         strcpy(fullpath + fullpath_len, direntry->d_name);
 
         /* Reservion for this entry */
-        fwrite(&entry, sizeof(entry), 1, outfile);
+        fwrite_off(&entry, sizeof(entry), 1, outfile, this_entry);
 
         /* Process entry */
         if (direntry->d_type == DT_DIR) {
@@ -96,27 +102,21 @@ int procdir(const char *dirname, char *fullpath, FILE *outfile)
             next_entry = procfile(direntry->d_name, fullpath, outfile);
         }
 
+        entry.next = next_entry;
         entry.len = next_entry - (this_entry + sizeof(entry));
 
         /* Write entry */
-        fseek(outfile, this_entry, SEEK_SET);
-        fwrite(&entry, sizeof(entry), 1, outfile);
+        fwrite_off(&entry, sizeof(entry), 1, outfile, this_entry);
 
         prev_entry = this_entry;
     }
 
-    prev_entry = entry.prev;
-
-    /* Write next entries */
-    while (prev_entry) {
-        /* Move to next field of previous entry and write next */
-        fseek(outfile, prev_entry + offsetof(struct entry, next), SEEK_SET);
-        fwrite(&this_entry, sizeof(this_entry), 1, outfile);
-
-        /* Move to prev field of previous entry and read previous */
-        fseek(outfile, prev_entry + offsetof(struct entry, prev), SEEK_SET);
-        fread(&prev_entry, sizeof(prev_entry), 1, outfile);
+    /* Clear next of last entry */
+    if (entry.next != 0) {
+        entry.next = 0;
+        fwrite_off(&entry, sizeof(entry), 1, outfile, this_entry);
     }
+
 
     closedir(dirfile);
 
@@ -170,7 +170,7 @@ int main (int argc, char *argv[])
 
     /* Reservion for root entry */
     struct entry entry;
-    fwrite(&entry, sizeof(entry), 1, outfile);
+    fwrite_off(&entry, sizeof(entry), 1, outfile, 0);
     size_t end = procdir(dirname, fullpath, outfile);
 
     entry.parent = 0;
@@ -178,8 +178,7 @@ int main (int argc, char *argv[])
     entry.next = 0;
     entry.isdir = 1;
     entry.len = end - sizeof(entry);
-    fseek(outfile, 0, SEEK_SET);
-    fwrite(&entry, sizeof(entry), 1, outfile);
+    fwrite_off(&entry, sizeof(entry), 1, outfile, 0);
 
     /* Clean up*/
     fclose(outfile);
