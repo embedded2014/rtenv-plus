@@ -49,6 +49,9 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 	$(CROSS_COMPILE)objcopy -Obinary main.elf main.bin
 	$(CROSS_COMPILE)objdump -S main.elf > main.list
 
+mkromfs: mkromfs.c
+	gcc -o mkromfs mkromfs.c
+
 qemu: main.bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 -kernel main.bin
 
@@ -95,3 +98,4 @@ qemuauto_remote: main.bin gdbscript
 
 clean:
 	rm -f *.elf *.bin *.list
+	rm -f mkromfs
