@@ -29,11 +29,19 @@ void pathserver()
 		read(PATHSERVER_FD, &plen, 4);
 		read(PATHSERVER_FD, path, plen);
 
-		if (!replyfd) { /* mkfifo */
+		if (!replyfd) { /* mkfile or path_register */
 			int dev;
 			read(PATHSERVER_FD, &dev, 4);
 			memcpy(paths[npaths], path, plen);
-			mknod(npaths + 3 + TASK_LIMIT, 0, dev);
+			if (dev == 0) { /* path_register */
+			    int fd = npaths + 3 + TASK_LIMIT;
+			    int reg_replyfd;
+			    read(PATHSERVER_FD, &reg_replyfd, 4);
+				write(reg_replyfd, &fd, 4);
+			}
+			else { /* mkfile */
+			    mknod(npaths + 3 + TASK_LIMIT, 0, dev);
+			}
 			npaths++;
 		}
 		else { /* open */
@@ -55,3 +63,23 @@ void pathserver()
 		}
 	}
 }
+
+int path_register(const char *pathname)
+{
+	unsigned int reg_replyfd = getpid() + 3;
+	size_t plen = strlen(pathname)+1;
+	int fd = -1;
+	char buf[4+4+PATH_MAX+4];
+
+    /* Send replyfd = 0, plen, dev = 0, reg_replyfd */
+	*((unsigned int *)buf) = 0;
+	*((unsigned int *)(buf + 4)) = plen;
+	memcpy(buf + 4 + 4, pathname, plen);
+	*((int *)(buf + 4 + 4 + plen)) = 0;
+	*((unsigned int *)(buf + 4 + 4 + plen + 4)) = reg_replyfd;
+	write(PATHSERVER_FD, buf, 4 + 4 + plen + 4 + 4);
+	read(reg_replyfd, &fd, 4);
+
+	return fd;
+}
+
