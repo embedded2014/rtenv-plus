@@ -20,7 +20,7 @@ void romdev_driver()
     size_t request_len;
 
     /* Register path for device */
-    self = getpid();
+    self = getpid() + 3;
 	fd = path_register(ROMDEV_PATH);
 	mknod(fd, 0, S_IFBLK);
 
