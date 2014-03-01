@@ -313,13 +313,11 @@ void check_keyword()
 {
 	char *argv[MAX_ARGC + 1] = {NULL};
 	char cmdstr[CMDBUF_SIZE];
-	char buffer[CMDBUF_SIZE * MAX_ENVVALUE / 2 + 1];
-	char *p = buffer;
 	int argc = 1;
 	int i;
 
 	find_events();
-	strcpy(cmdstr, cmd[cur_his]);
+	fill_arg(cmdstr, cmd[cur_his]);
 	argv[0] = cmdtok(cmdstr);
 	if (!argv[0])
 		return;
@@ -331,12 +329,6 @@ void check_keyword()
 		argc++;
 		if (argc >= MAX_ARGC)
 			break;
-	}
-
-	for(i = 0; i < argc; i++) {
-		int l = fill_arg(p, argv[i]);
-		argv[i] = p;
-		p += l + 1;
 	}
 
 	for (i = 0; i < CMD_COUNT; i++) {
