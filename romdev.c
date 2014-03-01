@@ -13,7 +13,6 @@ void romdev_driver()
 	int fd;
     struct block_request request;
     int cmd;
-    int task;
     size_t size;
     int pos;
     const char *request_start;
@@ -31,7 +30,6 @@ void romdev_driver()
 	        cmd = request.cmd;
 
 	        if (cmd == BLOCK_CMD_READ) {
-	            task = request.task;
 	            fd = request.fd;
 	            size = request.size;
 	            pos = request.pos;
