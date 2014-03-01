@@ -16,6 +16,7 @@
 #include "fifo.h"
 #include "mqueue.h"
 #include "block.h"
+#include "romdev.h"
 
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
@@ -592,6 +593,7 @@ void first()
 	setpriority(0, 0);
 
 	if (!fork()) setpriority(0, 0), pathserver();
+	if (!fork()) setpriority(0, 0), romdev_driver();
 	if (!fork()) setpriority(0, 0), serialout(USART2, USART2_IRQn);
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
