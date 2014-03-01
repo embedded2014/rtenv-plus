@@ -24,7 +24,7 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h
 		-I$(CMSIS_LIB)/CM3/DeviceSupport/ST/STM32F10x \
 		-I$(LIBDIR)/libraries/STM32F10x_StdPeriph_Driver/inc \
 		-fno-common -ffreestanding -O0 \
-		-gdwarf-2 -g3 \
+		-gdwarf-2 -g3 -Wall -Werror \
 		-mcpu=cortex-m3 -mthumb \
 		-o main.elf \
 		\
