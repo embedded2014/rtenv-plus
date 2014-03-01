@@ -494,7 +494,7 @@ char *cmdtok(char *cmd)
 					quo = *end;
 				*end = '\0';
 			}
-			else if (isspace(*end) && !quo)
+			else if (isspace((int)*end) && !quo)
 				*end = '\0';
 		}
 	}
@@ -560,7 +560,7 @@ void find_events()
 	for (; *p; p++) {
 		if (*p == '!') {
 			q = p;
-			while (*q && !isspace(*q))
+			while (*q && !isspace((int)*q))
 				q++;
 			for (i = cur_his + HISTORY_COUNT - 1; i > cur_his; i--) {
 				if (!strncmp(cmd[i % HISTORY_COUNT], p + 1, q - p - 1)) {
@@ -595,7 +595,7 @@ int fill_arg(char *const dest, const char *argv)
 	char *p = NULL;
 
 	for (; *argv; argv++) {
-		if (isalnum(*argv) || *argv == '_') {
+		if (isalnum((int)*argv) || *argv == '_') {
 			if (p)
 				*p++ = *argv;
 			else
