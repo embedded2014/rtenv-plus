@@ -674,11 +674,13 @@ _mknod(int fd, int driver_pid, struct file *files[], int dev,
 	return 0;
 }
 
+/* Task stacks and kernel heap */
+static unsigned int stacks[TASK_LIMIT][STACK_SIZE];
+static char memory_space[MEM_LIMIT];
+
 int main()
 {
-	unsigned int stacks[TASK_LIMIT][STACK_SIZE];
 	//struct task_control_block tasks[TASK_LIMIT];
-	char memory_space[MEM_LIMIT];
 	struct memory_pool memory_pool;
 	struct file *files[FILE_LIMIT];
 	struct task_control_block *ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
