@@ -15,6 +15,7 @@
 #include "pipe.h"
 #include "fifo.h"
 #include "mqueue.h"
+#include "block.h"
 
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
