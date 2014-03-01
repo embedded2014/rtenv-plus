@@ -52,7 +52,7 @@ mq_readable (struct file *file, char *buf, size_t size,
 
 	PIPE_PEEK(*pipe, msg_len, 4);
 
-	if (msg_len > task->stack->r2) {
+	if (msg_len > size) {
 		/* Trying to read more than buffer size */
 		task->stack->r0 = -1;
 		return 0;
@@ -64,7 +64,7 @@ int
 mq_writable (struct file *file, char *buf, size_t size,
 			 struct task_control_block *task)
 {
-	size_t total_len = sizeof(size_t) + task->stack->r2;
+	size_t total_len = sizeof(size_t) + size;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
@@ -112,10 +112,10 @@ mq_write (struct file *file, char *buf, size_t size,
 
 	/* Copy count into pipe */
 	for (i = 0; i < sizeof(size_t); i++)
-		PIPE_PUSH(*pipe,*(((char*)&task->stack->r2)+i));
+		PIPE_PUSH(*pipe,*(((char*)&size)+i));
 	/* Copy data into pipe */
-	for (i = 0; i < task->stack->r2; i++)
+	for (i = 0; i < size; i++)
 		PIPE_PUSH(*pipe,buf[i]);
-	return task->stack->r2;
+	return size;
 }
 

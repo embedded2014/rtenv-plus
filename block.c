@@ -10,39 +10,41 @@ struct block_response {
 };
 
 
-int block_driver_readable (struct block *block, struct task_control_block *task)
+int block_driver_readable (struct block *block, char *buf, size_t size,
+                           struct task_control_block *task)
 {
     return block->buzy;
 }
 
-int block_driver_writable (struct block *block, struct task_control_block *task)
+int block_driver_writable (struct block *block, char *buf, size_t size,
+                           struct task_control_block *task)
 {
     return block->buzy;
 }
 
-int block_driver_read (struct block *block, struct task_control_block *task)
+int block_driver_read (struct block *block, char *buf, size_t size,
+                       struct task_control_block *task)
 {
-    int len = task->stack->r2;
-    if (len > BLOCK_BUF)
-        len = BLOCK_BUF;
+    if (size > BLOCK_BUF)
+        size = BLOCK_BUF;
 
-    char *buf = (char *)task->stack->r1;
-    memcpy(buf, block->buf, len);
+    memcpy(buf, block->buf, size);
 
     /* still buzy until driver write response */
-    return len;
+    return size;
 }
 
-int block_driver_write (struct block *block, struct task_control_block *task)
+int block_driver_write (struct block *block, char *buf, size_t size,
+                        struct task_control_block *task)
 {
-    struct block_response *response = (void *)task->stack->r1;
-    char *buf = response->buf;
+    struct block_response *response = (void *)buf;
+    char *data_buf = response->buf;
     int len = response->transfer_len;
     if (len > BLOCK_BUF)
         len = BLOCK_BUF;
 
     if (len > 0) {
-        memcpy(buf, block->buf, len);
+        memcpy(block->buf, data_buf, len);
     }
     block->buzy = 0;
     return len;
@@ -57,21 +59,21 @@ int block_driver_write (struct block *block, struct task_control_block *task)
  *  5. Get transfer_len
  *  6. Read data from buffer
  */
-int block_request_readable (struct block *block, struct task_control_block *task)
+int block_request_readable (struct block *block, char *buf, size_t size,
+                            struct task_control_block *task)
 {
     if (block->request_pid == 0) {
         /* try to send request */
         struct file *driver = block->driver_file;
 
-        int len = task->stack->r2;
-        if (len > BLOCK_BUF)
-            len = BLOCK_BUF;
+        if (size > BLOCK_BUF)
+            size = BLOCK_BUF;
 
         struct block_request request = {
             .cmd = BLOCK_CMD_READ,
             .task = task->pid,
             .fd = task->stack->r0,
-            .size = len,
+            .size = size,
             .pos = block->pos
         };
 
@@ -100,29 +102,28 @@ int block_request_readable (struct block *block, struct task_control_block *task
  *  6. Driver write empty data to buffer
  *  7. Get transfer_len
  */
-int block_request_writable (struct block *block, struct task_control_block *task)
+int block_request_writable (struct block *block, char *buf, size_t size,
+                            struct task_control_block *task)
 {
     if (block->request_pid == 0) {
         /* try to send request */
         struct file *driver = block->driver_file;
 
-        int len = task->stack->r2;
-        if (len > BLOCK_BUF)
-            len = BLOCK_BUF;
+        if (size > BLOCK_BUF)
+            size = BLOCK_BUF;
 
         struct block_request request = {
             .cmd = BLOCK_CMD_WRITE,
             .task = task->pid,
             .fd = task->stack->r0,
-            .size = len,
+            .size = size,
             .pos = block->pos
         };
 
         if (driver->writable(driver, (char *)&request, sizeof(request), task)) {
             driver->write(driver, (char *)&request, sizeof(request), task);
 
-            char *buf = (char *)task->stack->r1;
-            memcpy(block->buf, buf, len);
+            memcpy(block->buf, buf, size);
 
             block->request_pid = task->pid;
             block->buzy = 1;
@@ -136,10 +137,10 @@ int block_request_writable (struct block *block, struct task_control_block *task
     return 0;
 }
 
-int block_request_read (struct block *block, struct task_control_block *task)
+int block_request_read (struct block *block, char *buf, size_t size,
+                        struct task_control_block *task)
 {
     if (block->transfer_len > 0) {
-        char *buf = (char *)task->stack->r1;
         memcpy(buf, block->buf, block->transfer_len);
 
         block->pos += block->transfer_len;
@@ -149,7 +150,8 @@ int block_request_read (struct block *block, struct task_control_block *task)
     return block->transfer_len;
 }
 
-int block_request_write (struct block *block, struct task_control_block *task)
+int block_request_write (struct block *block, char *buf, size_t size,
+                         struct task_control_block *task)
 {
     if (block->transfer_len > 0) {
         block->pos += block->transfer_len;
@@ -196,10 +198,10 @@ int block_readable (struct file *file, char *buf, size_t size,
 {
     struct block *block = container_of(file, struct block, file);
     if (block->driver_pid == task->pid) {
-        return block_driver_readable(block, task);
+        return block_driver_readable(block, buf, size, task);
     }
     else {
-        return block_request_readable(block, task);
+        return block_request_readable(block, buf, size, task);
     }
 }
 
@@ -208,10 +210,10 @@ int block_writable (struct file *file, char *buf, size_t size,
 {
     struct block *block = container_of(file, struct block, file);
     if (block->driver_pid == task->pid) {
-        return block_driver_writable(block, task);
+        return block_driver_writable(block, buf, size, task);
     }
     else {
-        return block_request_writable(block, task);
+        return block_request_writable(block, buf, size, task);
     }
 }
 
@@ -220,10 +222,10 @@ int block_read (struct file *file, char *buf, size_t size,
 {
     struct block *block = container_of(file, struct block, file);
     if (block->driver_pid == task->pid) {
-        return block_driver_read(block, task);
+        return block_driver_read(block, buf, size, task);
     }
     else {
-        return block_request_read(block, task);
+        return block_request_read(block, buf, size, task);
     }
 }
 
@@ -232,10 +234,10 @@ int block_write (struct file *file, char *buf, size_t size,
 {
     struct block *block = container_of(file, struct block, file);
     if (block->driver_pid == task->pid) {
-        return block_driver_write(block, task);
+        return block_driver_write(block, buf, size, task);
     }
     else {
-        return block_request_write(block, task);
+        return block_request_write(block, buf, size, task);
     }
 }
 

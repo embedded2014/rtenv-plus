@@ -37,7 +37,7 @@ fifo_readable (struct file *file, char *buf, size_t size,
 			   struct task_control_block *task)
 {
 	/* Trying to read too much */
-	if (task->stack->r2 > PIPE_BUF) {
+	if (size > PIPE_BUF) {
 		task->stack->r0 = -1;
 		return 0;
 	}
@@ -45,7 +45,7 @@ fifo_readable (struct file *file, char *buf, size_t size,
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
-	if ((size_t)PIPE_LEN(*pipe) < task->stack->r2) {
+	if ((size_t)PIPE_LEN(*pipe) < size) {
 		/* Trying to read more than there is: block */
 		task->status = TASK_WAIT_READ;
 		return 0;
@@ -61,12 +61,12 @@ fifo_writable (struct file *file, char *buf, size_t size,
 	    container_of(file, struct pipe_ringbuffer, file);
 
 	/* If the write would be non-atomic */
-	if (task->stack->r2 > PIPE_BUF) {
+	if (size > PIPE_BUF) {
 		task->stack->r0 = -1;
 		return 0;
 	}
 	/* Preserve 1 byte to distiguish empty or full */
-	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < task->stack->r2) {
+	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < size) {
 		/* Trying to write more than we have space for: block */
 		task->status = TASK_WAIT_WRITE;
 		return 0;
@@ -83,10 +83,10 @@ fifo_read (struct file *file, char *buf, size_t size,
 	    container_of(file, struct pipe_ringbuffer, file);
 
 	/* Copy data into buf */
-	for (i = 0; i < task->stack->r2; i++) {
+	for (i = 0; i < size; i++) {
 		PIPE_POP(*pipe, buf[i]);
 	}
-	return task->stack->r2;
+	return size;
 }
 
 int
@@ -98,8 +98,8 @@ fifo_write (struct file *file, char *buf, size_t size,
 	    container_of(file, struct pipe_ringbuffer, file);
 
 	/* Copy data into pipe */
-	for (i = 0; i < task->stack->r2; i++)
+	for (i = 0; i < size; i++)
 		PIPE_PUSH(*pipe,buf[i]);
-	return task->stack->r2;
+	return size;
 }
 
