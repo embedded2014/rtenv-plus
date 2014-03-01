@@ -1,9 +1,12 @@
 #include "stm32f10x.h"
+#include "stm32_p103.h"
 #include "RTOSConfig.h"
 
 #include "syscall.h"
 
 #include <stddef.h>
+#include <ctype.h>
+#include <string.h>
 
 void *memcpy(void *dest, const void *src, size_t n);
 
@@ -98,6 +101,12 @@ char cmd[HISTORY_COUNT][CMDBUF_SIZE];
 int cur_his=0;
 int fdout;
 int fdin;
+
+void check_keyword();
+void find_events();
+int fill_arg(char *const dest, const char *argv);
+void itoa(int n, char *dst, int base);
+int write_blank(int blank_num);
 
 /* Command handlers. */
 void export_envvar(int argc, char *argv[]);
