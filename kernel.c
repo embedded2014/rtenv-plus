@@ -106,7 +106,7 @@ void check_keyword();
 void find_events();
 int fill_arg(char *const dest, const char *argv);
 void itoa(int n, char *dst, int base);
-int write_blank(int blank_num);
+void write_blank(int blank_num);
 
 /* Command handlers. */
 void export_envvar(int argc, char *argv[]);
@@ -783,7 +783,7 @@ void show_history(int argc, char *argv[])
 	}
 }
 
-int write_blank(int blank_num)
+void write_blank(int blank_num)
 {
 	char blank[] = " ";
 	int blank_count = 0;
