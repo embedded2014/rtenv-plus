@@ -1,4 +1,5 @@
 #include "kconfig.h"
+#include "kernel.h"
 #include "stm32f10x.h"
 #include "stm32_p103.h"
 #include "RTOSConfig.h"
@@ -17,6 +18,7 @@
 #include "mqueue.h"
 #include "block.h"
 #include "romdev.h"
+#include "event-monitor.h"
 
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
@@ -604,74 +606,135 @@ void first()
 	while(1);
 }
 
-void _read(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[]);
-void _write(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[]);
-
-void _read(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[])
+int file_release(struct event_monitor *monitor, int event,
+                  struct task_control_block *task, void *data)
 {
-	task->status = TASK_READY;
-	/* If the fd is invalid */
-	if (task->stack->r0 >= FILE_LIMIT || !files[task->stack->r0]) {
-		task->stack->r0 = -1;
-	}
-	else {
-		struct file *file = files[task->stack->r0];
-		char *buf = (char *)task->stack->r1;
-		size_t size = task->stack->r2;
+    struct file *file = data;
+    struct file_request *request = (void*)task->stack->r0;
 
-		if (file->readable(file, buf, size, task)) {
-			size_t i;
-
-			file->read(file, buf, size, task);
-
-			/* Unblock any waiting writes */
-			for (i = 0; i < task_count; i++)
-				if (tasks[i].status == TASK_WAIT_WRITE)
-					_write(&tasks[i], tasks, task_count, files);
-		}
-	}
+    if (FILE_EVENT_IS_READ(event))
+        return _read(file, request, monitor);
+    else
+        return _write(file, request, monitor);
 }
 
-void _write(struct task_control_block *task, struct task_control_block *tasks, size_t task_count, struct file *files[])
+int _read(struct file *file, struct file_request *request,
+          struct event_monitor *monitor)
 {
-	task->status = TASK_READY;
-	/* If the fd is invalid */
-	if (task->stack->r0 >= FILE_LIMIT || !files[task->stack->r0]) {
-		task->stack->r0 = -1;
-	}
-	else {
-		struct file *file = files[task->stack->r0];
-		char *buf = (char *)task->stack->r1;
-		size_t size = task->stack->r2;
+    struct task_control_block *task = request->task;
 
-		if (file->writable(file, buf, size, task)) {
-			size_t i;
+	if (file) {
+	    switch (file->readable(file, request, monitor)) {
+		    case FILE_ACCESS_ACCEPT: {
+			    int size = file->read(file, request, monitor);
 
-			file->write(file, buf, size, task);
+			    if (task) {
+			        task->stack->r0 = size;
+	                task->status = TASK_READY;
+	            }
 
-			/* Unblock any waiting reads */
-			for (i = 0; i < task_count; i++)
-				if (tasks[i].status == TASK_WAIT_READ)
-					_read(&tasks[i], tasks, task_count, files);
+			    /* Release writing requests */
+			    event_monitor_release(monitor, FILE_EVENT_WRITE(file->fd));
+
+			    return 1;
+		    }
+		    case FILE_ACCESS_BLOCK:
+			    if (task) {
+	                task->status = TASK_WAIT_READ;
+
+	                event_monitor_block(monitor, FILE_EVENT_READ(file->fd),
+	                                    task);
+	            }
+	            return 0;
+		    case FILE_ACCESS_ERROR:
+		    default:
+		        ;
 		}
 	}
+
+    if (task) {
+        task->stack->r0 = -1;
+        task->status = TASK_READY;
+
+	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
+    }
+
+    return -1;
+}
+
+int _write(struct file *file, struct file_request *request,
+           struct event_monitor *monitor)
+{
+    struct task_control_block *task = request->task;
+
+	if (file) {
+	    switch (file->writable(file, request, monitor)) {
+	        case FILE_ACCESS_ACCEPT: {
+	            int size = file->write(file, request, monitor);
+
+	            if (task) {
+	                task->stack->r0 = size;
+	                task->status = TASK_READY;
+	            }
+
+			    /* Release reading requests */
+			    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
+
+			    return 1;
+		    }
+		    case FILE_ACCESS_BLOCK:
+		        if (request->task) {
+		            request->task->status = TASK_WAIT_WRITE;
+
+		            event_monitor_block(monitor, FILE_EVENT_WRITE(file->fd),
+		                                task);
+		        }
+		        return 0;
+		    case FILE_ACCESS_ERROR:
+		    default:
+		        ;
+		}
+	}
+
+	if (task) {
+	    task->stack->r0 = -1;
+	    task->status = TASK_READY;
+
+	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
+	}
+
+	return -1;
 }
 
 int
 _mknod(int fd, int driver_pid, struct file *files[], int dev,
-       struct memory_pool *memory_pool)
+       struct memory_pool *memory_pool, struct event_monitor *event_monitor)
 {
+    int result;
 	switch(dev) {
 	case S_IFIFO:
-		return fifo_init(fd, driver_pid, files, memory_pool);
+		result = fifo_init(fd, driver_pid, files, memory_pool);
+		break;
 	case S_IMSGQ:
-		return mq_init(fd, driver_pid, files, memory_pool);
+		result = mq_init(fd, driver_pid, files, memory_pool);
+		break;
 	case S_IFBLK:
-	    return block_init(fd, driver_pid, files, memory_pool);
+	    result = block_init(fd, driver_pid, files, memory_pool);
+	    break;
 	default:
-		return -1;
+		result = -1;
 	}
-	return 0;
+
+	if (result == 0) {
+	    files[fd]->fd = fd;
+
+	    event_monitor_register(event_monitor, FILE_EVENT_READ(fd),
+	                           file_release, &files[fd]);
+	    event_monitor_register(event_monitor, FILE_EVENT_WRITE(fd),
+	                           file_release, &files[fd]);
+    }
+
+	return result;
 }
 
 /* Task stacks and kernel heap */
@@ -683,8 +746,11 @@ int main()
 	//struct task_control_block tasks[TASK_LIMIT];
 	struct memory_pool memory_pool;
 	struct file *files[FILE_LIMIT];
+	struct file_request requests[TASK_LIMIT];
 	struct task_control_block *ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
 	struct task_control_block *wait_list = NULL;
+	struct event events[EVENT_LIMIT];
+	struct event_monitor event_monitor;
 	//size_t task_count = 0;
 	size_t current_task = 0;
 	size_t i;
@@ -711,11 +777,13 @@ int main()
 
 	/* Initialize fifos */
 	for (i = 0; i <= PATHSERVER_FD; i++)
-		_mknod(i, -1, files, S_IFIFO, &memory_pool);
+		_mknod(i, -1, files, S_IFIFO, &memory_pool, &event_monitor);
 
 	/* Initialize ready lists */
 	for (i = 0; i <= PRIORITY_LIMIT; i++)
 		ready_list[i] = NULL;
+
+    event_monitor_init(&event_monitor, events, ready_list);
 
 	while (1) {
 		tasks[current_task].stack = activate(tasks[current_task].stack);
@@ -755,11 +823,45 @@ int main()
 			tasks[current_task].stack->r0 = current_task;
 			break;
 		case 0x3: /* write */
-			_write(&tasks[current_task], tasks, task_count, files);
-			break;
+		    {
+		        /* Check fd is valid */
+		        int fd = tasks[current_task].stack->r0;
+		        if (fd < FILE_LIMIT && files[fd]) {
+		            /* Prepare file request, store reference in r0 */
+		            requests[current_task].task = &tasks[current_task];
+		            requests[current_task].buf =
+		                (void*)tasks[current_task].stack->r1;
+		            requests[current_task].size = tasks[current_task].stack->r2;
+		            tasks[current_task].stack->r0 =
+		                (int)&requests[current_task];
+
+                    /* Write */
+			        _write(files[fd], &requests[current_task], &event_monitor);
+			    }
+			    else {
+			        tasks[current_task].stack->r0 = -1;
+			    }
+			} break;
 		case 0x4: /* read */
-			_read(&tasks[current_task], tasks, task_count, files);
-			break;
+            {
+		        /* Check fd is valid */
+		        int fd = tasks[current_task].stack->r0;
+		        if (fd < FILE_LIMIT && files[fd]) {
+		            /* Prepare file request, store reference in r0 */
+		            requests[current_task].task = &tasks[current_task];
+		            requests[current_task].buf =
+		                (void*)tasks[current_task].stack->r1;
+		            requests[current_task].size = tasks[current_task].stack->r2;
+		            tasks[current_task].stack->r0 =
+		                (int)&requests[current_task];
+
+                    /* Read */
+			        _read(files[fd], &requests[current_task], &event_monitor);
+			    }
+			    else {
+			        tasks[current_task].stack->r0 = -1;
+			    }
+			} break;
 		case 0x5: /* interrupt_wait */
 			/* Enable interrupt */
 			NVIC_EnableIRQ(tasks[current_task].stack->r0);
@@ -797,7 +899,8 @@ int main()
 				       tasks[current_task].pid,
 				       files,
 					   tasks[current_task].stack->r2,
-					   &memory_pool);
+					   &memory_pool,
+					   &event_monitor);
 			break;
 		case 0x9: /* sleep */
 			if (tasks[current_task].stack->r0 != 0) {
