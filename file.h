@@ -13,6 +13,10 @@
 /* file flags */
 #define O_CREAT 4
 
+#define FILE_ACCESS_ACCEPT 1
+#define FILE_ACCESS_BLOCK  0
+#define FILE_ACCESS_ERROR -1
+
 struct file_request {
     struct task_control_block *task;
     char *buf;
