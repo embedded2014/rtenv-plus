@@ -35,8 +35,8 @@ mq_init(int fd, int driver_pid, struct file *files[],
 }
 
 int
-mq_readable (struct file *file, char *buf, size_t size,
-			 struct task_control_block *task)
+mq_readable (struct file *file, struct file_request *request,
+             struct event_monitor *monitor)
 {
 	size_t msg_len;
 
@@ -46,45 +46,41 @@ mq_readable (struct file *file, char *buf, size_t size,
 	/* Trying to read too much */
 	if ((size_t)PIPE_LEN(*pipe) < sizeof(size_t)) {
 		/* Nothing to read */
-		task->status = TASK_WAIT_READ;
-		return 0;
+		return FILE_ACCESS_BLOCK;
 	}
 
 	PIPE_PEEK(*pipe, msg_len, 4);
 
-	if (msg_len > size) {
+	if (msg_len > request->size) {
 		/* Trying to read more than buffer size */
-		task->stack->r0 = -1;
-		return 0;
+		return FILE_ACCESS_ERROR;
 	}
-	return 1;
+	return FILE_ACCESS_ACCEPT;
 }
 
 int
-mq_writable (struct file *file, char *buf, size_t size,
-			 struct task_control_block *task)
+mq_writable (struct file *file, struct file_request *request,
+             struct event_monitor *monitor)
 {
-	size_t total_len = sizeof(size_t) + size;
+	size_t total_len = sizeof(size_t) + request->size;
 	struct pipe_ringbuffer *pipe =
 	    container_of(file, struct pipe_ringbuffer, file);
 
 	/* If the write would be non-atomic */
 	if (total_len > PIPE_BUF) {
-		task->stack->r0 = -1;
-		return 0;
+		return FILE_ACCESS_ERROR;
 	}
 	/* Preserve 1 byte to distiguish empty or full */
 	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < total_len) {
 		/* Trying to write more than we have space for: block */
-		task->status = TASK_WAIT_WRITE;
-		return 0;
+		return FILE_ACCESS_BLOCK;
 	}
-	return 1;
+	return FILE_ACCESS_ACCEPT;
 }
 
 int
-mq_read (struct file *file, char *buf, size_t size,
-		 struct task_control_block *task)
+mq_read (struct file *file, struct file_request *request,
+         struct event_monitor *monitor)
 {
 	size_t msg_len;
 	size_t i;
@@ -97,14 +93,14 @@ mq_read (struct file *file, char *buf, size_t size,
 	}
 	/* Copy data into buf */
 	for (i = 0; i < msg_len; i++) {
-		PIPE_POP(*pipe, buf[i]);
+		PIPE_POP(*pipe, request->buf[i]);
 	}
 	return msg_len;
 }
 
 int
-mq_write (struct file *file, char *buf, size_t size,
-		  struct task_control_block *task)
+mq_write (struct file *file, struct file_request *request,
+          struct event_monitor *monitor)
 {
 	size_t i;
 	struct pipe_ringbuffer *pipe =
@@ -112,10 +108,10 @@ mq_write (struct file *file, char *buf, size_t size,
 
 	/* Copy count into pipe */
 	for (i = 0; i < sizeof(size_t); i++)
-		PIPE_PUSH(*pipe,*(((char*)&size)+i));
+		PIPE_PUSH(*pipe,*(((char*)&request->size)+i));
 	/* Copy data into pipe */
-	for (i = 0; i < size; i++)
-		PIPE_PUSH(*pipe,buf[i]);
-	return size;
+	for (i = 0; i < request->size; i++)
+		PIPE_PUSH(*pipe,request->buf[i]);
+	return request->size;
 }
 
