@@ -17,6 +17,11 @@
 #define FILE_ACCESS_BLOCK  0
 #define FILE_ACCESS_ERROR -1
 
+#define FILE_EVENT_READ(fd) ((fd) * 2)
+#define FILE_EVENT_WRITE(fd) ((fd) * 2 + 1)
+
+#define FILE_EVENT_IS_READ(event) ((event) % 2 == 0)
+
 struct file_request {
     struct task_control_block *task;
     char *buf;
