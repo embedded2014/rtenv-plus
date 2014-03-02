@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "string.h"
 #include "syscall.h"
+#include "kernel.h"
 
 struct block_response {
     int transfer_len;
@@ -10,34 +11,41 @@ struct block_response {
 };
 
 
-int block_driver_readable (struct block *block, char *buf, size_t size,
-                           struct task_control_block *task)
+int block_driver_readable (struct block *block, struct file_request *request,
+                           struct event_monitor *monitor)
 {
-    return block->buzy;
+    if (block->buzy)
+        return FILE_ACCESS_ACCEPT;
+    else
+        return FILE_ACCESS_ERROR;
 }
 
-int block_driver_writable (struct block *block, char *buf, size_t size,
-                           struct task_control_block *task)
+int block_driver_writable (struct block *block, struct file_request *request,
+                           struct event_monitor *monitor)
 {
-    return block->buzy;
+    if (block->buzy)
+        return FILE_ACCESS_ACCEPT;
+    else
+        return FILE_ACCESS_ERROR;
 }
 
-int block_driver_read (struct block *block, char *buf, size_t size,
-                       struct task_control_block *task)
+int block_driver_read (struct block *block, struct file_request *request,
+                       struct event_monitor *monitor)
 {
+    int size = request->size;
     if (size > BLOCK_BUF)
         size = BLOCK_BUF;
 
-    memcpy(buf, block->buf, size);
+    memcpy(request->buf, block->buf, size);
 
     /* still buzy until driver write response */
     return size;
 }
 
-int block_driver_write (struct block *block, char *buf, size_t size,
-                        struct task_control_block *task)
+int block_driver_write (struct block *block, struct file_request *request,
+                        struct event_monitor *monitor)
 {
-    struct block_response *response = (void *)buf;
+    struct block_response *response = (void *)request->buf;
     char *data_buf = response->buf;
     int len = response->transfer_len;
     if (len > BLOCK_BUF)
@@ -59,17 +67,19 @@ int block_driver_write (struct block *block, char *buf, size_t size,
  *  5. Get transfer_len
  *  6. Read data from buffer
  */
-int block_request_readable (struct block *block, char *buf, size_t size,
-                            struct task_control_block *task)
+int block_request_readable (struct block *block, struct file_request *request,
+                            struct event_monitor *monitor)
 {
+    struct task_control_block *task = request->task;
+
     if (block->request_pid == 0) {
         /* try to send request */
         struct file *driver = block->driver_file;
-
+        int size = request->size;
         if (size > BLOCK_BUF)
             size = BLOCK_BUF;
 
-        struct block_request request = {
+        struct block_request block_request = {
             .cmd = BLOCK_CMD_READ,
             .task = task->pid,
             .fd = task->stack->r0,
@@ -77,19 +87,21 @@ int block_request_readable (struct block *block, char *buf, size_t size,
             .pos = block->pos
         };
 
-        if (driver->writable(driver, (char *)&request, sizeof(request), task)) {
-            driver->write(driver, (char *)&request, sizeof(request), task);
-
+        struct file_request file_request = {
+            .task = NULL,
+            .buf = (char *)&block_request,
+            .size = sizeof(block_request),
+        };
+        if (_write(driver, &file_request, monitor) == 1) {
             block->request_pid = task->pid;
             block->buzy = 1;
         }
     }
     else if (block->request_pid == task->pid && !block->buzy) {
-        return 1;
+        return FILE_ACCESS_ACCEPT;
     }
 
-    task->status = TASK_WAIT_READ;
-    return 0;
+    return FILE_ACCESS_BLOCK;
 }
 
 /*
@@ -102,17 +114,19 @@ int block_request_readable (struct block *block, char *buf, size_t size,
  *  6. Driver write empty data to buffer
  *  7. Get transfer_len
  */
-int block_request_writable (struct block *block, char *buf, size_t size,
-                            struct task_control_block *task)
+int block_request_writable (struct block *block, struct file_request *request,
+                            struct event_monitor *monitor)
 {
+    struct task_control_block *task = request->task;
+
     if (block->request_pid == 0) {
         /* try to send request */
         struct file *driver = block->driver_file;
-
+        int size = request->size;
         if (size > BLOCK_BUF)
             size = BLOCK_BUF;
 
-        struct block_request request = {
+        struct block_request block_request = {
             .cmd = BLOCK_CMD_WRITE,
             .task = task->pid,
             .fd = task->stack->r0,
@@ -120,28 +134,32 @@ int block_request_writable (struct block *block, char *buf, size_t size,
             .pos = block->pos
         };
 
-        if (driver->writable(driver, (char *)&request, sizeof(request), task)) {
-            driver->write(driver, (char *)&request, sizeof(request), task);
+        struct file_request file_request = {
+            .task = NULL,
+            .buf = (char *)&block_request,
+            .size = sizeof(block_request),
+        };
 
-            memcpy(block->buf, buf, size);
+        if (_write(driver, &file_request, monitor) == 1) {
+
+            memcpy(block->buf, request->buf, size);
 
             block->request_pid = task->pid;
             block->buzy = 1;
         }
     }
     else if (block->request_pid == task->pid && !block->buzy) {
-        return 1;
+        return FILE_ACCESS_ACCEPT;
     }
 
-    task->status = TASK_WAIT_WRITE;
-    return 0;
+    return FILE_ACCESS_BLOCK;
 }
 
-int block_request_read (struct block *block, char *buf, size_t size,
-                        struct task_control_block *task)
+int block_request_read (struct block *block, struct file_request *request,
+                        struct event_monitor *monitor)
 {
     if (block->transfer_len > 0) {
-        memcpy(buf, block->buf, block->transfer_len);
+        memcpy(request->buf, block->buf, block->transfer_len);
 
         block->pos += block->transfer_len;
     }
@@ -150,8 +168,8 @@ int block_request_read (struct block *block, char *buf, size_t size,
     return block->transfer_len;
 }
 
-int block_request_write (struct block *block, char *buf, size_t size,
-                         struct task_control_block *task)
+int block_request_write (struct block *block, struct file_request *request,
+                         struct event_monitor *monitor)
 {
     if (block->transfer_len > 0) {
         block->pos += block->transfer_len;
@@ -193,51 +211,51 @@ int block_response(int fd, char *buf, int len)
     return write(fd, &response, sizeof(response));
 }
 
-int block_readable (struct file *file, char *buf, size_t size,
-                    struct task_control_block *task)
+int block_readable (struct file *file, struct file_request *request,
+                    struct event_monitor *monitor)
 {
     struct block *block = container_of(file, struct block, file);
-    if (block->driver_pid == task->pid) {
-        return block_driver_readable(block, buf, size, task);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_readable(block, request, monitor);
     }
     else {
-        return block_request_readable(block, buf, size, task);
+        return block_request_readable(block, request, monitor);
     }
 }
 
-int block_writable (struct file *file, char *buf, size_t size,
-                    struct task_control_block *task)
+int block_writable (struct file *file, struct file_request *request,
+                    struct event_monitor *monitor)
 {
     struct block *block = container_of(file, struct block, file);
-    if (block->driver_pid == task->pid) {
-        return block_driver_writable(block, buf, size, task);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_writable(block, request, monitor);
     }
     else {
-        return block_request_writable(block, buf, size, task);
+        return block_request_writable(block, request, monitor);
     }
 }
 
-int block_read (struct file *file, char *buf, size_t size,
-                struct task_control_block *task)
+int block_read (struct file *file, struct file_request *request,
+                struct event_monitor *monitor)
 {
     struct block *block = container_of(file, struct block, file);
-    if (block->driver_pid == task->pid) {
-        return block_driver_read(block, buf, size, task);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_read(block, request, monitor);
     }
     else {
-        return block_request_read(block, buf, size, task);
+        return block_request_read(block, request, monitor);
     }
 }
 
-int block_write (struct file *file, char *buf, size_t size,
-                 struct task_control_block *task)
+int block_write (struct file *file, struct file_request *request,
+                 struct event_monitor *monitor)
 {
     struct block *block = container_of(file, struct block, file);
-    if (block->driver_pid == task->pid) {
-        return block_driver_write(block, buf, size, task);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_write(block, request, monitor);
     }
     else {
-        return block_request_write(block, buf, size, task);
+        return block_request_write(block, request, monitor);
     }
 }
 

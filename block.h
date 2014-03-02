@@ -33,13 +33,13 @@ struct block_request {
 int block_init(int fd, int driver_pid, struct file *files[],
                struct memory_pool *memory_pool);
 int block_response(int fd, char *buf, int len);
-int block_readable (struct file *file, char *buf, size_t size,
-                    struct task_control_block *task);
-int block_writable (struct file *file, char *buf, size_t size,
-                    struct task_control_block *task);
-int block_read (struct file *file, char *buf, size_t size,
-                struct task_control_block *task);
-int block_write (struct file *file, char *buf, size_t size,
-                 struct task_control_block *task);
+int block_readable (struct file *file, struct file_request *request,
+                    struct event_monitor *monitor);
+int block_writable (struct file *file, struct file_request *request,
+                    struct event_monitor *monitor);
+int block_read (struct file *file, struct file_request *request,
+                struct event_monitor *monitor);
+int block_write (struct file *file, struct file_request *request,
+                 struct event_monitor *monitor);
 
 #endif
