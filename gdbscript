@@ -3,3 +3,8 @@ file main.elf
 target remote :3333
 set debug timestamp on
 set logging on
+
+b Infinite_Loop
+b g_pfnVectors
+b main
+c
