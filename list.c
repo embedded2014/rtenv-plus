@@ -26,6 +26,7 @@ void list_unshift(struct list *list, struct list *new)
     if (list && new) {
         list_remove(new);
 
+        list->next->prev = new;
         new->next = list->next;
         new->prev = list;
         list->next = new;
@@ -39,6 +40,7 @@ void list_push(struct list *list, struct list *new)
         new->prev->next = new->next;
         new->next->prev = new->prev;
 
+        list->prev->next = new;
         new->next = list;
         new->prev = list->prev;
         list->prev = new;
