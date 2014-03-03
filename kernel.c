@@ -50,6 +50,7 @@ void show_cmd_info(int argc, char *argv[]);
 void show_task_info(int argc, char *argv[]);
 void show_man_page(int argc, char *argv[]);
 void show_history(int argc, char *argv[]);
+void show_xxd(int argc, char *argv[]);
 
 /* Enumeration for command types. */
 enum {
@@ -59,6 +60,7 @@ enum {
 	CMD_HISTORY,
 	CMD_MAN,
 	CMD_PS,
+	CMD_XXD,
 	CMD_COUNT
 } CMD_TYPE;
 /* Structure for command handler. */
@@ -73,7 +75,8 @@ const hcmd_entry cmd_data[CMD_COUNT] = {
 	[CMD_HELP] = {.cmd = "help", .func = show_cmd_info, .description = "List all commands you can use."},
 	[CMD_HISTORY] = {.cmd = "history", .func = show_history, .description = "Show latest commands entered."}, 
 	[CMD_MAN] = {.cmd = "man", .func = show_man_page, .description = "Manual pager."},
-	[CMD_PS] = {.cmd = "ps", .func = show_task_info, .description = "List all the processes."}
+	[CMD_PS] = {.cmd = "ps", .func = show_task_info, .description = "List all the processes."},
+	[CMD_XXD] = {.cmd = "xxd", .func = show_xxd, .description = "Make a hexdump."},
 };
 
 /* Structure for environment variables. */
@@ -589,6 +592,117 @@ void write_blank(int blank_num)
 		blank_count++;
 	}
 }
+
+char hexof(int dec)
+{
+    const char hextab[] = "0123456789abcdef";
+
+    if (dec < 0 || dec > 15)
+        return -1;
+
+    return hextab[dec];
+}
+
+char char_filter(char c, char fallback)
+{
+    if (c < 0x20 || c > 0x7E)
+        return fallback;
+
+    return c;
+}
+
+#define XXD_WIDTH 0x10
+
+//xxd
+void show_xxd(int argc, char *argv[])
+{
+    int readfd = -1;
+    char buf[XXD_WIDTH];
+    char ch;
+    char chout;
+    int pos = 0;
+    int size;
+    int i;
+
+    if (argc == 1) { /* fallback to stdin */
+        readfd = fdin;
+    }
+    else { /* open file of argv[1] */
+        readfd = open(argv[1], 0);
+
+        if (readfd < 0) { /* Open error */
+            write(fdout, "xxd: ", 5);
+            write(fdout, argv[1], strlen(argv[1]));
+            write(fdout, ": No such file or directory\r\n", 30);
+            return;
+        }
+    }
+
+    while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
+        if (ch != -1) { /* has something read */
+            chout = hexof((pos >> i) % 0xFF);
+
+            if (pos & XXD_WIDTH) { /* new line, print address */
+
+                for (i = sizeof(pos) - 4; i >= 0; i -= 4) {
+                    write(fdout, &chout, 1);
+                }
+
+                write(fdout, ":", 1);
+            }
+
+            if (pos % 2 == 0) { /* whitespace for each 2 bytes */
+                /* higher bits */
+                chout = hexof(ch >> 4);
+                write(fdout, &chout, 1);
+
+                /* lower bits*/
+                chout = hexof(ch & 0xFF);
+                write(fdout, &chout, 1);
+
+                /* store in buffer */
+                buf[pos % XXD_WIDTH] = ch;
+            }
+
+            pos++;
+
+            if (pos % XXD_WIDTH) { /* end of line */
+                write(fdout, "  ", 2);
+
+                for (i = 0; i < XXD_WIDTH; i++) {
+                    chout = char_filter(buf[i], '.');
+                    write(fdout, &chout, 1);
+                }
+
+                write(fdout, "\r\n", 2);
+            }
+        }
+        else { /* EOF */
+            break;
+        }
+    }
+
+    if (pos % XXD_WIDTH != 0) { /* rest */
+        /* align */
+        for (i = XXD_WIDTH; i > pos % XXD_WIDTH; i--) {
+            write(fdout, "  ", 2);
+
+            if (i % 2 == 0) { /* whitespace for each 2 bytes */
+                write(fdout, " ", 1);
+            }
+        }
+
+        write(fdout, "  ", 2);
+
+        for (i = 0; i < XXD_WIDTH; i++) {
+            chout = char_filter(buf[i], '.');
+            write(fdout, &chout, 1);
+        }
+
+        write(fdout, "\r\n", 2);
+    }
+}
+
 
 void first()
 {
