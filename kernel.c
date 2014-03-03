@@ -895,13 +895,6 @@ int main()
 	init_rs232();
 	__enable_irq();
 
-	tasks[task_count].stack = (void*)init_task(stacks[task_count], &first);
-	tasks[task_count].pid = 0;
-	tasks[task_count].priority = PRIORITY_DEFAULT;
-	list_init(&tasks[task_count].list);
-	list_push(&ready_list[tasks[task_count].priority], &tasks[task_count].list);
-	task_count++;
-
     /* Initialize memory pool */
     memory_pool_init(&memory_pool, MEM_LIMIT, memory_space);
 
@@ -924,6 +917,14 @@ int main()
 	    event_monitor_register(&event_monitor, INTR_EVENT(i), intr_release, 0);
 
 	event_monitor_register(&event_monitor, TIME_EVENT, time_release, &tick_count);
+
+    /* Initialize first thread */
+	tasks[task_count].stack = (void*)init_task(stacks[task_count], &first);
+	tasks[task_count].pid = 0;
+	tasks[task_count].priority = PRIORITY_DEFAULT;
+	list_init(&tasks[task_count].list);
+	list_push(&ready_list[tasks[task_count].priority], &tasks[task_count].list);
+	task_count++;
 
 	while (1) {
 		tasks[current_task].stack = activate(tasks[current_task].stack);
