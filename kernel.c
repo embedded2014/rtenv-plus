@@ -902,15 +902,16 @@ int main()
 	for (i = 0; i < FILE_LIMIT; i++)
 		files[i] = NULL;
 
-	/* Initialize fifos */
-	for (i = 0; i <= PATHSERVER_FD; i++)
-		_mknod(i, -1, files, S_IFIFO, &memory_pool, &event_monitor);
-
 	/* Initialize ready lists */
 	for (i = 0; i <= PRIORITY_LIMIT; i++)
 		list_init(&ready_list[i]);
 
+    /* Initialise event monitor */
     event_monitor_init(&event_monitor, events, ready_list);
+
+	/* Initialize fifos */
+	for (i = 0; i <= PATHSERVER_FD; i++)
+		_mknod(i, -1, files, S_IFIFO, &memory_pool, &event_monitor);
 
     /* Register IRQ events, see INTR_LIMIT */
 	for (i = -15; i < INTR_LIMIT - 15; i++)
