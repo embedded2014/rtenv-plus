@@ -49,7 +49,8 @@ void event_monitor_serve(struct event_monitor *monitor)
 
             list_for_each_safe (curr, next, &event->list) {
                 task = list_entry(curr, struct task_control_block, list);
-                if (event->handler(monitor, i, task, event->data)) {
+                if (event->handler
+                        && event->handler(monitor, i, task, event->data)) {
                     list_push(&monitor->ready_list[task->priority], &task->list);
                     task->status = TASK_READY;
                 }
