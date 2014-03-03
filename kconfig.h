@@ -1,7 +1,7 @@
 #ifndef KCONFIG_H
 #define KCONFIG_H
 
-#define STACK_SIZE 512 /* Size of task stacks in words */
+#define STACK_SIZE 384 /* Size of task stacks in words */
 #define TASK_LIMIT 8  /* Max number of tasks we can handle */
 #define PIPE_LIMIT (TASK_LIMIT * 2)
 #define PIPE_BUF   64 /* Size of largest atomic pipe message */

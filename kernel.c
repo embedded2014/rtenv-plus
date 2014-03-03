@@ -23,11 +23,11 @@
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
 #define MAX_CMDHELP 1023
-#define HISTORY_COUNT 20
-#define CMDBUF_SIZE 100
-#define MAX_ENVCOUNT 30
+#define HISTORY_COUNT 8
+#define CMDBUF_SIZE 64
+#define MAX_ENVCOUNT 16
 #define MAX_ENVNAME 15
-#define MAX_ENVVALUE 127
+#define MAX_ENVVALUE 63
 
 /*Global Variables*/
 char next_line[3] = {'\n','\r','\0'};
