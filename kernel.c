@@ -868,19 +868,19 @@ int time_release(struct event_monitor *monitor, int event,
     return task->stack->r0 == *tick_count;
 }
 
-/* Task stacks and kernel heap */
-static unsigned int stacks[TASK_LIMIT][STACK_SIZE];
-static char memory_space[MEM_LIMIT];
+/* System resources */
+unsigned int stacks[TASK_LIMIT][STACK_SIZE];
+char memory_space[MEM_LIMIT];
+struct file *files[FILE_LIMIT];
+struct file_request requests[TASK_LIMIT];
+struct list ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
+struct event events[EVENT_LIMIT];
 
 
 int main()
 {
 	//struct task_control_block tasks[TASK_LIMIT];
 	struct memory_pool memory_pool;
-	struct file *files[FILE_LIMIT];
-	struct file_request requests[TASK_LIMIT];
-	struct list ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
-	struct event events[EVENT_LIMIT];
 	struct event_monitor event_monitor;
 	//size_t task_count = 0;
 	size_t current_task = 0;
