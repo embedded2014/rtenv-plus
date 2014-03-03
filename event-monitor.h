@@ -15,17 +15,17 @@ struct event {
     int pending;
     event_monitor_handler handler;
     void *data;
-    struct task_control_block *list;
+    struct list list;
 };
 
 struct event_monitor {
     struct event *events;
-    struct task_control_block **ready_list;
+    struct list *ready_list;
 };
 
 void event_monitor_init(struct event_monitor *monitor,
                         struct event *events,
-                        struct task_control_block **ready_list);
+                        struct list *ready_list);
 void event_monitor_register(struct event_monitor *monitor, int event,
                             event_monitor_handler handler, void *data);
 void event_monitor_block(struct event_monitor *monitor, int event,

@@ -855,19 +855,21 @@ _mknod(int fd, int driver_pid, struct file *files[], int dev,
 static unsigned int stacks[TASK_LIMIT][STACK_SIZE];
 static char memory_space[MEM_LIMIT];
 
+
 int main()
 {
 	//struct task_control_block tasks[TASK_LIMIT];
 	struct memory_pool memory_pool;
 	struct file *files[FILE_LIMIT];
 	struct file_request requests[TASK_LIMIT];
-	struct task_control_block *ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
-	struct task_control_block *wait_list = NULL;
+	struct list ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
+	struct list wait_list;
 	struct event events[EVENT_LIMIT];
 	struct event_monitor event_monitor;
 	//size_t task_count = 0;
 	size_t current_task = 0;
 	size_t i;
+	struct list *list, *curr, *next;
 	struct task_control_block *task;
 	int timeup;
 	unsigned int tick_count = 0;
@@ -880,6 +882,7 @@ int main()
 	tasks[task_count].stack = (void*)init_task(stacks[task_count], &first);
 	tasks[task_count].pid = 0;
 	tasks[task_count].priority = PRIORITY_DEFAULT;
+	list_init(&tasks[task_count].list);
 	task_count++;
 
     /* Initialize memory pool */
@@ -895,7 +898,8 @@ int main()
 
 	/* Initialize ready lists */
 	for (i = 0; i <= PRIORITY_LIMIT; i++)
-		ready_list[i] = NULL;
+		list_init(&ready_list[i]);
+	list_init(&wait_list);
 
     event_monitor_init(&event_monitor, events, ready_list);
 
@@ -926,9 +930,8 @@ int main()
 				/* Set return values in each process */
 				tasks[current_task].stack->r0 = task_count;
 				tasks[task_count].stack->r0 = 0;
-				tasks[task_count].prev = NULL;
-				tasks[task_count].next = NULL;
-				task_push(&ready_list[tasks[task_count].priority], &tasks[task_count]);
+				list_init(&tasks[task_count].list);
+				list_push(&ready_list[tasks[task_count].priority], &tasks[task_count].list);
 				/* There is now one more task */
 				task_count++;
 			}
@@ -1044,27 +1047,31 @@ int main()
 		}
 
 		/* Put waken tasks in ready list */
-		for (task = wait_list; task != NULL;) {
-			struct task_control_block *next = task->next;
+		list_for_each_safe (curr, next, list) {
+		    task = list_entry(curr, struct task_control_block, list);
 			if (task->status == TASK_READY)
-				task_push(&ready_list[task->priority], task);
-			task = next;
+				list_push(&ready_list[task->priority], &task->list);
 		}
+
 		/* Select next TASK_READY task */
-		for (i = 0; i < (size_t)tasks[current_task].priority && ready_list[i] == NULL; i++);
+		for (i = 0; i < (size_t)tasks[current_task].priority && list_empty(&ready_list[i]); i++);
+
 		if (tasks[current_task].status == TASK_READY) {
 			if (!timeup && i == (size_t)tasks[current_task].priority)
 				/* Current task has highest priority and remains execution time */
 				continue;
 			else
-				task_push(&ready_list[tasks[current_task].priority], &tasks[current_task]);
+				list_push(&ready_list[tasks[current_task].priority], &tasks[current_task].list);
 		}
 		else {
-			task_push(&wait_list, &tasks[current_task]);
+			list_push(&wait_list, &tasks[current_task].list);
 		}
-		while (ready_list[i] == NULL)
+		while (list_empty(&ready_list[i]))
 			i++;
-		current_task = task_pop(&ready_list[i])->pid;
+
+		list = list_pop(&ready_list[i]);
+		task = list_entry(list, struct task_control_block, list);
+		current_task = task->pid;
 	}
 
 	return 0;

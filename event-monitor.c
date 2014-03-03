@@ -1,10 +1,11 @@
 #include "event-monitor.h"
 
+#include "list.h"
 
 
 void event_monitor_init(struct event_monitor *monitor,
                         struct event *events,
-                        struct task_control_block **ready_list)
+                        struct list *ready_list)
 {
     int i;
 
@@ -15,7 +16,7 @@ void event_monitor_init(struct event_monitor *monitor,
         events[i].pending = 0;
         events[i].handler = 0;
         events[i].data = 0;
-        events[i].list = 0;
+        list_init(&events[i].list);
     }
 }
 
@@ -29,7 +30,7 @@ void event_monitor_register(struct event_monitor *monitor, int event,
 void event_monitor_block(struct event_monitor *monitor, int event,
                          struct task_control_block *task)
 {
-    task_push(&monitor->events[event].list, task);
+    list_push(&monitor->events[event].list, &task->list);
 }
 
 void event_monitor_release(struct event_monitor *monitor, int event)
@@ -44,14 +45,14 @@ void event_monitor_serve(struct event_monitor *monitor)
         if (monitor->events[i].pending) {
             struct event *event = &monitor->events[i];
             struct task_control_block *task;
+            struct list *curr, *next;
 
-            for (task = event->list;
-                    task && event->handler(monitor, i, task, event->data);
-                    task = event->list) {
-
-                task_pop(&event->list);
-                task_push(&monitor->ready_list[task->priority], task);
-                task->status = TASK_READY;
+            list_for_each_safe (curr, next, &event->list) {
+                task = list_entry(curr, struct task_control_block, list);
+                if (event->handler(monitor, i, task, event->data)) {
+                    list_push(&monitor->ready_list[task->priority], &task->list);
+                    task->status = TASK_READY;
+                }
             }
 
             event->pending = 0;
