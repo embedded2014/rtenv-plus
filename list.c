@@ -13,6 +13,25 @@ int list_empty(struct list *list)
     return list->next == list;
 }
 
+void list_remove(struct list *list)
+{
+    if (list) {
+        list->next->prev = list->prev;
+        list->prev->next = list->next;
+    }
+}
+
+void list_unshift(struct list *list, struct list *new)
+{
+    if (list && new) {
+        list_remove(new);
+
+        new->next = list->next;
+        new->prev = list;
+        list->next = new;
+    }
+}
+
 void list_push(struct list *list, struct list *new)
 {
     if (list && new) {

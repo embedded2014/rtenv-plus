@@ -22,6 +22,8 @@ struct list {
 
 void list_init(struct list *list);
 int list_empty(struct list *list);
+void list_remove(struct list *list);
+void list_unshift(struct list *list, struct list *new);
 void list_push(struct list *list, struct list* new);
 struct list* list_pop(struct list* list);
 
