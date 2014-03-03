@@ -1026,10 +1026,15 @@ int main()
 				int who = tasks[current_task].stack->r0;
 				int value = tasks[current_task].stack->r1;
 				value = (value < 0) ? 0 : ((value > PRIORITY_LIMIT) ? PRIORITY_LIMIT : value);
-				if (who > 0 && who < (int)task_count)
+				if (who > 0 && who < (int)task_count) {
 					tasks[who].priority = value;
-				else if (who == 0)
+					if (tasks[who].status == TASK_READY)
+					    list_push(&ready_list[value], &tasks[who].list);
+				}
+				else if (who == 0) {
 					tasks[current_task].priority = value;
+				    list_unshift(&ready_list[value], &tasks[current_task].list);
+				}
 				else {
 					tasks[current_task].stack->r0 = -1;
 					break;
