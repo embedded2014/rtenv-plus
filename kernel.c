@@ -880,13 +880,12 @@ int main()
 	struct file *files[FILE_LIMIT];
 	struct file_request requests[TASK_LIMIT];
 	struct list ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
-	struct list wait_list;
 	struct event events[EVENT_LIMIT];
 	struct event_monitor event_monitor;
 	//size_t task_count = 0;
 	size_t current_task = 0;
 	size_t i;
-	struct list *list, *curr, *next;
+	struct list *list;
 	struct task_control_block *task;
 	int timeup;
 	unsigned int tick_count = 0;
@@ -900,6 +899,7 @@ int main()
 	tasks[task_count].pid = 0;
 	tasks[task_count].priority = PRIORITY_DEFAULT;
 	list_init(&tasks[task_count].list);
+	list_push(&ready_list[tasks[task_count].priority], &tasks[task_count].list);
 	task_count++;
 
     /* Initialize memory pool */
@@ -916,7 +916,6 @@ int main()
 	/* Initialize ready lists */
 	for (i = 0; i <= PRIORITY_LIMIT; i++)
 		list_init(&ready_list[i]);
-	list_init(&wait_list);
 
     event_monitor_init(&event_monitor, events, ready_list);
 
@@ -1071,30 +1070,18 @@ int main()
 			}
 		}
 
-		/* Put waken tasks in ready list */
-		list_for_each_safe (curr, next, list) {
-		    task = list_entry(curr, struct task_control_block, list);
-			if (task->status == TASK_READY)
-				list_push(&ready_list[task->priority], &task->list);
-		}
+        /* Rearrange ready list and event list */
+		event_monitor_serve(&event_monitor);
+
+		/* Check whether to context switch */
+		task = &tasks[current_task];
+		if (timeup && ready_list[task->priority].next == &task->list)
+		    list_push(&ready_list[task->priority], &tasks[current_task].list);
 
 		/* Select next TASK_READY task */
-		for (i = 0; i < (size_t)tasks[current_task].priority && list_empty(&ready_list[i]); i++);
+		for (i = 0; list_empty(&ready_list[i]); i++);
 
-		if (tasks[current_task].status == TASK_READY) {
-			if (!timeup && i == (size_t)tasks[current_task].priority)
-				/* Current task has highest priority and remains execution time */
-				continue;
-			else
-				list_push(&ready_list[tasks[current_task].priority], &tasks[current_task].list);
-		}
-		else {
-			list_push(&wait_list, &tasks[current_task].list);
-		}
-		while (list_empty(&ready_list[i]))
-			i++;
-
-		list = list_pop(&ready_list[i]);
+		list = ready_list[i].next;
 		task = list_entry(list, struct task_control_block, list);
 		current_task = task->pid;
 	}
