@@ -12,7 +12,10 @@
 #define FILE_LIMIT (PIPE_LIMIT + FREG_LIMIT)
 #define MEM_LIMIT (sizeof(struct pipe_ringbuffer) * PIPE_LIMIT)
 #define BLOCK_BUF 64
-#define EVENT_LIMIT (FILE_LIMIT * 2) /* Read and write event for each file */
+
+#define INTR_LIMIT 58 /* IRQn = [-15 ... 42] */
+#define EVENT_LIMIT (FILE_LIMIT * 2 + INTR_LIMIT + 1)
+    /* Read and write event for each file, intr events and time event */
 
 #define PRIORITY_DEFAULT 20
 #define PRIORITY_LIMIT (PRIORITY_DEFAULT * 2 - 1)

@@ -851,6 +851,23 @@ _mknod(int fd, int driver_pid, struct file *files[], int dev,
 	return result;
 }
 
+#define INTR_EVENT(intr) (FILE_LIMIT + (intr) + 15) /* see INTR_LIMIT */
+#define INTR_EVENT_REVERSE(event) ((event) - FILE_LIMIT - 15)
+#define TIME_EVENT (FILE_LIMIT + INTR_LIMIT)
+
+int intr_release(struct event_monitor *monitor, int event,
+                 struct task_control_block *task, void *data)
+{
+    return 1;
+}
+
+int time_release(struct event_monitor *monitor, int event,
+                 struct task_control_block *task, void *data)
+{
+    int *tick_count = data;
+    return task->stack->r0 == *tick_count;
+}
+
 /* Task stacks and kernel heap */
 static unsigned int stacks[TASK_LIMIT][STACK_SIZE];
 static char memory_space[MEM_LIMIT];
@@ -902,6 +919,12 @@ int main()
 	list_init(&wait_list);
 
     event_monitor_init(&event_monitor, events, ready_list);
+
+    /* Register IRQ events, see INTR_LIMIT */
+	for (i = -15; i < INTR_LIMIT - 15; i++)
+	    event_monitor_register(&event_monitor, INTR_EVENT(i), intr_release, 0);
+
+	event_monitor_register(&event_monitor, TIME_EVENT, time_release, &tick_count);
 
 	while (1) {
 		tasks[current_task].stack = activate(tasks[current_task].stack);
@@ -984,6 +1007,9 @@ int main()
 			NVIC_EnableIRQ(tasks[current_task].stack->r0);
 			/* Block task waiting for interrupt to happen */
 			tasks[current_task].status = TASK_WAIT_INTR;
+			event_monitor_block(&event_monitor,
+			                    INTR_EVENT(tasks[current_task].stack->r0),
+			                    &tasks[current_task]);
 			break;
 		case 0x6: /* getpriority */
 			{
@@ -1023,6 +1049,8 @@ int main()
 			if (tasks[current_task].stack->r0 != 0) {
 				tasks[current_task].stack->r0 += tick_count;
 				tasks[current_task].status = TASK_WAIT_TIME;
+			    event_monitor_block(&event_monitor, TIME_EVENT,
+			                        &tasks[current_task]);
 			}
 			break;
 		default: /* Catch all interrupts */
@@ -1033,16 +1061,13 @@ int main()
 					/* Never disable timer. We need it for pre-emption */
 					timeup = 1;
 					tick_count++;
+					event_monitor_release(&event_monitor, TIME_EVENT);
 				}
 				else {
 					/* Disable interrupt, interrupt_wait re-enables */
 					NVIC_DisableIRQ(intr);
 				}
-				/* Unblock any waiting tasks */
-				for (i = 0; i < task_count; i++)
-					if ((tasks[i].status == TASK_WAIT_INTR && tasks[i].stack->r0 == intr) ||
-					    (tasks[i].status == TASK_WAIT_TIME && tasks[i].stack->r0 == tick_count))
-						tasks[i].status = TASK_READY;
+				event_monitor_release(&event_monitor, INTR_EVENT(intr));
 			}
 		}
 
