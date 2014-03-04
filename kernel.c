@@ -843,9 +843,9 @@ _mknod(int fd, int driver_pid, struct file *files[], int dev,
 	    files[fd]->fd = fd;
 
 	    event_monitor_register(event_monitor, FILE_EVENT_READ(fd),
-	                           file_release, &files[fd]);
+	                           file_release, files[fd]);
 	    event_monitor_register(event_monitor, FILE_EVENT_WRITE(fd),
-	                           file_release, &files[fd]);
+	                           file_release, files[fd]);
     }
 
 	return result;
