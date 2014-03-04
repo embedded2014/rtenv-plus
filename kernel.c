@@ -695,8 +695,8 @@ void show_xxd(int argc, char *argv[])
 
         write(fdout, "  ", 3);
 
-        for (i = 0; i < XXD_WIDTH; i++) {
-            chout[2] = char_filter(buf[i], '.');
+        for (i = 0; i < pos % XXD_WIDTH; i++) {
+            chout[0] = char_filter(buf[i], '.');
             write(fdout, chout, 2);
         }
 
