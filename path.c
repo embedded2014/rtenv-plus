@@ -84,19 +84,20 @@ void pathserver()
 
 int path_register(const char *pathname)
 {
-	unsigned int reg_replyfd = getpid() + 3;
+    int cmd = PATH_CMD_REGISTER_PATH;
+	unsigned int replyfd = getpid() + 3;
 	size_t plen = strlen(pathname)+1;
 	int fd = -1;
-	char buf[4+4+PATH_MAX+4];
+	char buf[4+4+4+PATH_MAX];
+	int pos = 0;
 
-    /* Send replyfd = 0, plen, dev = 0, reg_replyfd */
-	*((unsigned int *)buf) = 0;
-	*((unsigned int *)(buf + 4)) = plen;
-	memcpy(buf + 4 + 4, pathname, plen);
-	*((int *)(buf + 4 + 4 + plen)) = 0;
-	*((unsigned int *)(buf + 4 + 4 + plen + 4)) = reg_replyfd;
-	write(PATHSERVER_FD, buf, 4 + 4 + plen + 4 + 4);
-	read(reg_replyfd, &fd, 4);
+	path_write_data(buf, &cmd, 4, pos);
+	path_write_data(buf, &replyfd, 4, pos);
+	path_write_data(buf, &plen, 4, pos);
+	path_write_data(buf, pathname, plen, pos);
+
+	write(PATHSERVER_FD, buf, pos);
+	read(replyfd, &fd, 4);
 
 	return fd;
 }
