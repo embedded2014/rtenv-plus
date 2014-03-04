@@ -197,7 +197,7 @@ int block_init(int fd, int driver_pid, struct file *files[],
         return -1;
 
     block->driver_pid = driver_pid;
-    block->driver_file = files[driver_pid];
+    block->driver_file = files[driver_pid + 3];
     block->request_pid = 0;
     block->buzy = 0;
     block->pos = 0;
