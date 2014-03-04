@@ -22,7 +22,7 @@ int mkfile(const char *pathname, int mode, int dev)
 	path_write_data(buf, &cmd, 4, pos);
 	path_write_data(buf, &replyfd, 4, pos);
 	path_write_data(buf, &plen, 4, pos);
-	path_write_data(buf, &pathname, plen, pos);
+	path_write_data(buf, pathname, plen, pos);
 	path_write_data(buf, &dev, 4, pos);
 
 	write(PATHSERVER_FD, buf, pos);
@@ -44,7 +44,7 @@ int open(const char *pathname, int flags)
 	path_write_data(buf, &cmd, 4, pos);
 	path_write_data(buf, &replyfd, 4, pos);
 	path_write_data(buf, &plen, 4, pos);
-	path_write_data(buf, &pathname, plen, pos);
+	path_write_data(buf, pathname, plen, pos);
 
 	write(PATHSERVER_FD, buf, pos);
 	read(replyfd, &fd, 4);
