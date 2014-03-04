@@ -643,7 +643,7 @@ void show_xxd(int argc, char *argv[])
 
             if (pos % XXD_WIDTH == 0) { /* new line, print address */
                 for (i = sizeof(pos) * 8 - 4; i >= 0; i -= 4) {
-                    chout[0] = hexof((pos >> i) % 0xF);
+                    chout[0] = hexof((pos >> i) & 0xF);
                     write(fdout, chout, 2);
                 }
 
