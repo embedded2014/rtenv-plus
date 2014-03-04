@@ -639,7 +639,7 @@ void show_xxd(int argc, char *argv[])
     }
 
     while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
-        if (ch != -1) { /* has something read */
+        if (ch != -1 && ch != 0x04) { /* has something read */
 
             if (pos % XXD_WIDTH == 0) { /* new line, print address */
                 for (i = sizeof(pos) * 8 - 4; i >= 0; i -= 4) {
