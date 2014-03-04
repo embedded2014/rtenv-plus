@@ -721,137 +721,6 @@ void first()
 	while(1);
 }
 
-int file_release(struct event_monitor *monitor, int event,
-                  struct task_control_block *task, void *data)
-{
-    struct file *file = data;
-    struct file_request *request = (void*)task->stack->r0;
-
-    if (FILE_EVENT_IS_READ(event))
-        return _read(file, request, monitor);
-    else
-        return _write(file, request, monitor);
-}
-
-int _read(struct file *file, struct file_request *request,
-          struct event_monitor *monitor)
-{
-    struct task_control_block *task = request->task;
-
-	if (file) {
-	    switch (file->ops->readable(file, request, monitor)) {
-		    case FILE_ACCESS_ACCEPT: {
-			    int size = file->ops->read(file, request, monitor);
-
-			    if (task) {
-			        task->stack->r0 = size;
-	                task->status = TASK_READY;
-	            }
-
-			    /* Release writing requests */
-			    event_monitor_release(monitor, FILE_EVENT_WRITE(file->fd));
-
-			    return 1;
-		    }
-		    case FILE_ACCESS_BLOCK:
-			    if (task && task->status == TASK_READY) {
-	                task->status = TASK_WAIT_READ;
-
-	                event_monitor_block(monitor, FILE_EVENT_READ(file->fd),
-	                                    task);
-	            }
-	            return 0;
-		    case FILE_ACCESS_ERROR:
-		    default:
-		        ;
-		}
-	}
-
-    if (task) {
-        task->stack->r0 = -1;
-        task->status = TASK_READY;
-
-	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
-    }
-
-    return -1;
-}
-
-int _write(struct file *file, struct file_request *request,
-           struct event_monitor *monitor)
-{
-    struct task_control_block *task = request->task;
-
-	if (file) {
-	    switch (file->ops->writable(file, request, monitor)) {
-	        case FILE_ACCESS_ACCEPT: {
-	            int size = file->ops->write(file, request, monitor);
-
-	            if (task) {
-	                task->stack->r0 = size;
-	                task->status = TASK_READY;
-	            }
-
-			    /* Release reading requests */
-			    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
-
-			    return 1;
-		    }
-		    case FILE_ACCESS_BLOCK:
-		        if (task && task->status == TASK_READY) {
-		            request->task->status = TASK_WAIT_WRITE;
-
-		            event_monitor_block(monitor, FILE_EVENT_WRITE(file->fd),
-		                                task);
-		        }
-		        return 0;
-		    case FILE_ACCESS_ERROR:
-		    default:
-		        ;
-		}
-	}
-
-	if (task) {
-	    task->stack->r0 = -1;
-	    task->status = TASK_READY;
-
-	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
-	}
-
-	return -1;
-}
-
-int
-_mknod(int fd, int driver_pid, struct file *files[], int dev,
-       struct memory_pool *memory_pool, struct event_monitor *event_monitor)
-{
-    int result;
-	switch(dev) {
-	case S_IFIFO:
-		result = fifo_init(fd, driver_pid, files, memory_pool);
-		break;
-	case S_IMSGQ:
-		result = mq_init(fd, driver_pid, files, memory_pool);
-		break;
-	case S_IFBLK:
-	    result = block_init(fd, driver_pid, files, memory_pool);
-	    break;
-	default:
-		result = -1;
-	}
-
-	if (result == 0) {
-	    files[fd]->fd = fd;
-
-	    event_monitor_register(event_monitor, FILE_EVENT_READ(fd),
-	                           file_release, files[fd]);
-	    event_monitor_register(event_monitor, FILE_EVENT_WRITE(fd),
-	                           file_release, files[fd]);
-    }
-
-	return result;
-}
-
 #define INTR_EVENT(intr) (FILE_LIMIT + (intr) + 15) /* see INTR_LIMIT */
 #define INTR_EVENT_REVERSE(event) ((event) - FILE_LIMIT - 15)
 #define TIME_EVENT (FILE_LIMIT + INTR_LIMIT)
@@ -912,7 +781,7 @@ int main()
 
 	/* Initialize fifos */
 	for (i = 0; i <= PATHSERVER_FD; i++)
-		_mknod(i, -1, files, S_IFIFO, &memory_pool, &event_monitor);
+		file_mknod(i, -1, files, S_IFIFO, &memory_pool, &event_monitor);
 
     /* Register IRQ events, see INTR_LIMIT */
 	for (i = -15; i < INTR_LIMIT - 15; i++)
@@ -978,7 +847,8 @@ int main()
 		                (int)&requests[current_task];
 
                     /* Write */
-			        _write(files[fd], &requests[current_task], &event_monitor);
+			        file_write(files[fd], &requests[current_task],
+			                   &event_monitor);
 			    }
 			    else {
 			        tasks[current_task].stack->r0 = -1;
@@ -998,7 +868,8 @@ int main()
 		                (int)&requests[current_task];
 
                     /* Read */
-			        _read(files[fd], &requests[current_task], &event_monitor);
+			        file_read(files[fd], &requests[current_task],
+			                  &event_monitor);
 			    }
 			    else {
 			        tasks[current_task].stack->r0 = -1;
@@ -1045,12 +916,12 @@ int main()
 			} break;
 		case 0x8: /* mknod */
 			tasks[current_task].stack->r0 =
-				_mknod(tasks[current_task].stack->r0,
-				       tasks[current_task].pid,
-				       files,
-					   tasks[current_task].stack->r2,
-					   &memory_pool,
-					   &event_monitor);
+				file_mknod(tasks[current_task].stack->r0,
+				           tasks[current_task].pid,
+				           files,
+					       tasks[current_task].stack->r2,
+					       &memory_pool,
+					       &event_monitor);
 			break;
 		case 0x9: /* sleep */
 			if (tasks[current_task].stack->r0 != 0) {

@@ -3,7 +3,7 @@
 #include "utils.h"
 #include "string.h"
 #include "syscall.h"
-#include "kernel.h"
+#include "file.h"
 
 struct block_response {
     int transfer_len;
@@ -100,7 +100,7 @@ int block_request_readable (struct block *block, struct file_request *request,
             .buf = (char *)&block_request,
             .size = sizeof(block_request),
         };
-        if (_write(driver, &file_request, monitor) == 1) {
+        if (file_write(driver, &file_request, monitor) == 1) {
             block->request_pid = task->pid;
             block->buzy = 1;
         }
@@ -148,7 +148,7 @@ int block_request_writable (struct block *block, struct file_request *request,
             .size = sizeof(block_request),
         };
 
-        if (_write(driver, &file_request, monitor) == 1) {
+        if (file_write(driver, &file_request, monitor) == 1) {
 
             memcpy(block->buf, request->buf, size);
 
