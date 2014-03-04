@@ -753,7 +753,7 @@ int _read(struct file *file, struct file_request *request,
 			    return 1;
 		    }
 		    case FILE_ACCESS_BLOCK:
-			    if (task) {
+			    if (task && task->status == TASK_READY) {
 	                task->status = TASK_WAIT_READ;
 
 	                event_monitor_block(monitor, FILE_EVENT_READ(file->fd),
@@ -797,7 +797,7 @@ int _write(struct file *file, struct file_request *request,
 			    return 1;
 		    }
 		    case FILE_ACCESS_BLOCK:
-		        if (request->task) {
+		        if (task && task->status == TASK_READY) {
 		            request->task->status = TASK_WAIT_WRITE;
 
 		            event_monitor_block(monitor, FILE_EVENT_WRITE(file->fd),
