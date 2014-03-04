@@ -14,6 +14,7 @@
 #define BLOCK_BUF 64
 #define FS_LIMIT 8
 #define FS_TYPE_MAX 8
+#define MOUNT_LIMIT 4
 
 #define INTR_LIMIT 58 /* IRQn = [-15 ... 42] */
 #define EVENT_LIMIT (FILE_LIMIT * 2 + INTR_LIMIT + 1)

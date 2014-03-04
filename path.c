@@ -20,6 +20,8 @@ void pathserver()
 	int fs_fds[FS_LIMIT];
 	char fs_types[FS_LIMIT][FS_TYPE_MAX];
 	int nfs_types = 0;
+	char mounts[MOUNT_LIMIT][PATH_MAX];
+	int nmounts = 0;
 	int i = 0;
 	int cmd = 0;
 	unsigned int plen = 0;
@@ -28,6 +30,7 @@ void pathserver()
 	int dev = 0;
 	int newfd = 0;
 	char fs_type[FS_TYPE_MAX];
+	int status;
 
 	memcpy(paths[npaths++], PATH_SERVER_NAME, sizeof(PATH_SERVER_NAME));
 
@@ -88,6 +91,55 @@ void pathserver()
 		        nfs_types++;
 		        i = 0;
 				write(replyfd, &i, 4);
+				break;
+
+			case PATH_CMD_MOUNT: {
+			    int slen;
+			    int dlen;
+			    int tlen;
+			    char src[PATH_MAX];
+			    char dst[PATH_MAX];
+			    char type[FS_TYPE_MAX];
+		        read(PATHSERVER_FD, &slen, 4);
+		        read(PATHSERVER_FD, src, plen);
+		        read(PATHSERVER_FD, &dlen, 4);
+		        read(PATHSERVER_FD, dst, plen);
+		        read(PATHSERVER_FD, &tlen, 4);
+		        read(PATHSERVER_FD, type, plen);
+
+		        /* Search for filesystem types */
+			    for (i = 0; i < nfs_types; i++) {
+				    if (*fs_types[i] && strcmp(type, fs_types[i]) == 0) {
+					    break;
+				    }
+			    }
+
+			    if (i >= nfs_types) {
+				    status = -1; /* Error: not found */
+				    write(replyfd, &status, 4);
+				    break;
+			    }
+
+		        /* Search for device */
+			    for (i = 0; i < npaths; i++) {
+				    if (*paths[i] && strcmp(src, paths[i]) == 0) {
+					    break;
+				    }
+			    }
+
+			    if (i >= npaths) {
+				    status = -1; /* Error: not found */
+				    write(replyfd, &status, 4);
+				    break;
+			    }
+
+                /* Store mount point */
+			    memcpy(mounts[nmounts], dst, dlen);
+			    nmounts++;
+
+                status = 0;
+                write(replyfd, &status, 4);
+		    }   break;
 
 		    default:
 		        ;
@@ -133,5 +185,31 @@ int path_register_fs(const char *type)
 	read(replyfd, &fd, 4);
 
 	return fd;
+}
+
+int mount(const char *src, const char *dst, const char *type, int flags)
+{
+    int cmd = PATH_CMD_MOUNT;
+	unsigned int replyfd = getpid() + 3;
+	size_t slen = strlen(src)+1;
+	size_t dlen = strlen(dst) + 1;
+	size_t tlen = strlen(type) + 1;
+	int status;
+	char buf[4 + 4 + 4 + PATH_MAX + 4 + PATH_MAX + 4 + FS_TYPE_MAX];
+	int pos = 0;
+
+	path_write_data(buf, &cmd, 4, pos);
+	path_write_data(buf, &replyfd, 4, pos);
+	path_write_data(buf, &slen, 4, pos);
+	path_write_data(buf, src, slen, pos);
+	path_write_data(buf, &dlen, 4, pos);
+	path_write_data(buf, dst, dlen, pos);
+	path_write_data(buf, &tlen, 4, pos);
+	path_write_data(buf, type, tlen, pos);
+
+	write(PATHSERVER_FD, buf, pos);
+	read(replyfd, &status, 4);
+
+	return status;
 }
 
