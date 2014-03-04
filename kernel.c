@@ -619,7 +619,7 @@ void show_xxd(int argc, char *argv[])
     int readfd = -1;
     char buf[XXD_WIDTH];
     char ch;
-    char chout;
+    char chout[2] = {0};
     int pos = 0;
     int size;
     int i;
@@ -631,34 +631,34 @@ void show_xxd(int argc, char *argv[])
         readfd = open(argv[1], 0);
 
         if (readfd < 0) { /* Open error */
-            write(fdout, "xxd: ", 5);
-            write(fdout, argv[1], strlen(argv[1]));
-            write(fdout, ": No such file or directory\r\n", 30);
+            write(fdout, "xxd: ", 6);
+            write(fdout, argv[1], strlen(argv[1]) + 1);
+            write(fdout, ": No such file or directory\r\n", 31);
             return;
         }
     }
 
     while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
         if (ch != -1) { /* has something read */
-            chout = hexof((pos >> i) % 0xFF);
+            chout[0] = hexof((pos >> i) % 0xFF);
 
             if (pos & XXD_WIDTH) { /* new line, print address */
 
                 for (i = sizeof(pos) - 4; i >= 0; i -= 4) {
-                    write(fdout, &chout, 1);
+                    write(fdout, chout, 2);
                 }
 
-                write(fdout, ":", 1);
+                write(fdout, ":", 2);
             }
 
             if (pos % 2 == 0) { /* whitespace for each 2 bytes */
                 /* higher bits */
-                chout = hexof(ch >> 4);
-                write(fdout, &chout, 1);
+                chout[0] = hexof(ch >> 4);
+                write(fdout, chout, 2);
 
                 /* lower bits*/
-                chout = hexof(ch & 0xFF);
-                write(fdout, &chout, 1);
+                chout[0] = hexof(ch & 0xFF);
+                write(fdout, chout, 2);
 
                 /* store in buffer */
                 buf[pos % XXD_WIDTH] = ch;
@@ -667,14 +667,14 @@ void show_xxd(int argc, char *argv[])
             pos++;
 
             if (pos % XXD_WIDTH) { /* end of line */
-                write(fdout, "  ", 2);
+                write(fdout, "  ", 3);
 
                 for (i = 0; i < XXD_WIDTH; i++) {
-                    chout = char_filter(buf[i], '.');
-                    write(fdout, &chout, 1);
+                    chout[0] = char_filter(buf[i], '.');
+                    write(fdout, chout, 2);
                 }
 
-                write(fdout, "\r\n", 2);
+                write(fdout, "\r\n", 3);
             }
         }
         else { /* EOF */
@@ -685,21 +685,21 @@ void show_xxd(int argc, char *argv[])
     if (pos % XXD_WIDTH != 0) { /* rest */
         /* align */
         for (i = XXD_WIDTH; i > pos % XXD_WIDTH; i--) {
-            write(fdout, "  ", 2);
+            write(fdout, "  ", 3);
 
             if (i % 2 == 0) { /* whitespace for each 2 bytes */
-                write(fdout, " ", 1);
+                write(fdout, " ", 2);
             }
         }
 
-        write(fdout, "  ", 2);
+        write(fdout, "  ", 3);
 
         for (i = 0; i < XXD_WIDTH; i++) {
-            chout = char_filter(buf[i], '.');
-            write(fdout, &chout, 1);
+            chout[2] = char_filter(buf[i], '.');
+            write(fdout, chout, 2);
         }
 
-        write(fdout, "\r\n", 2);
+        write(fdout, "\r\n", 3);
     }
 }
 
