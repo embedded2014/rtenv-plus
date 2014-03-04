@@ -61,6 +61,7 @@ int block_driver_write (struct block *block, struct file_request *request,
     if (len > 0) {
         memcpy(block->buf, data_buf, len);
     }
+    block->transfer_len = len;
     block->buzy = 0;
     return len;
 }
