@@ -10,7 +10,7 @@
 	/* File descriptor of pipe to pathserver */
 #define FREG_LIMIT 16 /* Other types file limit */
 #define FILE_LIMIT (PIPE_LIMIT + FREG_LIMIT)
-#define MEM_LIMIT (sizeof(struct pipe_ringbuffer) * PIPE_LIMIT)
+#define MEM_LIMIT (2048)
 #define BLOCK_BUF 64
 
 #define INTR_LIMIT 58 /* IRQn = [-15 ... 42] */
