@@ -89,7 +89,7 @@ int block_request_readable (struct block *block, struct file_request *request,
         struct block_request block_request = {
             .cmd = BLOCK_CMD_READ,
             .task = task->pid,
-            .fd = task->stack->r0,
+            .fd = block->file.fd,
             .size = size,
             .pos = block->pos
         };
@@ -136,7 +136,7 @@ int block_request_writable (struct block *block, struct file_request *request,
         struct block_request block_request = {
             .cmd = BLOCK_CMD_WRITE,
             .task = task->pid,
-            .fd = task->stack->r0,
+            .fd = block->file.fd,
             .size = size,
             .pos = block->pos
         };
