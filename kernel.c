@@ -884,7 +884,7 @@ int main()
 	struct event_monitor event_monitor;
 	//size_t task_count = 0;
 	size_t current_task = 0;
-	size_t i;
+	int i;
 	struct list *list;
 	struct task_control_block *task;
 	int timeup;
