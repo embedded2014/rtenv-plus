@@ -651,17 +651,19 @@ void show_xxd(int argc, char *argv[])
             }
 
             if (pos % 2 == 0) { /* whitespace for each 2 bytes */
-                /* higher bits */
-                chout[0] = hexof(ch >> 4);
-                write(fdout, chout, 2);
-
-                /* lower bits*/
-                chout[0] = hexof(ch & 0xFF);
-                write(fdout, chout, 2);
-
-                /* store in buffer */
-                buf[pos % XXD_WIDTH] = ch;
+                write(fdout, " ", 2);
             }
+
+            /* higher bits */
+            chout[0] = hexof(ch >> 4);
+            write(fdout, chout, 2);
+
+            /* lower bits*/
+            chout[0] = hexof(ch & 0xF);
+            write(fdout, chout, 2);
+
+            /* store in buffer */
+            buf[pos % XXD_WIDTH] = ch;
 
             pos++;
 
