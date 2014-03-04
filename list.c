@@ -47,7 +47,7 @@ void list_push(struct list *list, struct list *new)
     }
 }
 
-struct list* list_pop(struct list *list)
+struct list* list_shift(struct list *list)
 {
     struct list *first = list->next;
 
