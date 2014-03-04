@@ -17,6 +17,9 @@ void pathserver()
 {
 	char paths[PIPE_LIMIT - TASK_LIMIT - 3][PATH_MAX];
 	int npaths = 0;
+	int fs_fds[FS_LIMIT];
+	char fs_types[FS_LIMIT][FS_TYPE_MAX];
+	int nfs_types = 0;
 	int i = 0;
 	int cmd = 0;
 	unsigned int plen = 0;
@@ -24,6 +27,7 @@ void pathserver()
 	char path[PATH_MAX];
 	int dev = 0;
 	int newfd = 0;
+	char fs_type[FS_TYPE_MAX];
 
 	memcpy(paths[npaths++], PATH_SERVER_NAME, sizeof(PATH_SERVER_NAME));
 
@@ -76,6 +80,15 @@ void pathserver()
 				write(replyfd, &newfd, 4);
 		        break;
 
+		    case PATH_CMD_REGISTER_FS:
+		        read(PATHSERVER_FD, &plen, 4);
+		        read(PATHSERVER_FD, fs_type, plen);
+		        fs_fds[nfs_types] = replyfd;
+			    memcpy(fs_types[nfs_types], fs_type, plen);
+		        nfs_types++;
+		        i = 0;
+				write(replyfd, &i, 4);
+
 		    default:
 		        ;
 		}
@@ -95,6 +108,26 @@ int path_register(const char *pathname)
 	path_write_data(buf, &replyfd, 4, pos);
 	path_write_data(buf, &plen, 4, pos);
 	path_write_data(buf, pathname, plen, pos);
+
+	write(PATHSERVER_FD, buf, pos);
+	read(replyfd, &fd, 4);
+
+	return fd;
+}
+
+int path_register_fs(const char *type)
+{
+    int cmd = PATH_CMD_REGISTER_PATH;
+	unsigned int replyfd = getpid() + 3;
+	size_t plen = strlen(type)+1;
+	int fd = -1;
+	char buf[4+4+4+PATH_MAX];
+	int pos = 0;
+
+	path_write_data(buf, &cmd, 4, pos);
+	path_write_data(buf, &replyfd, 4, pos);
+	path_write_data(buf, &plen, 4, pos);
+	path_write_data(buf, type, plen, pos);
 
 	write(PATHSERVER_FD, buf, pos);
 	read(replyfd, &fd, 4);
