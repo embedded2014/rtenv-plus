@@ -33,16 +33,20 @@ int mkfile(const char *pathname, int mode, int dev)
 
 int open(const char *pathname, int flags)
 {
+    int cmd = PATH_CMD_OPEN;
 	unsigned int replyfd = getpid() + 3;
 	size_t plen = strlen(pathname) + 1;
 	unsigned int fd = -1;
-	char buf[4 + 4 + PATH_MAX];
+	char buf[4 + 4 + 4 + PATH_MAX];
 	(void) flags;
+	int pos = 0;
 
-	*((unsigned int *)buf) = replyfd;
-	*((unsigned int *)(buf + 4)) = plen;
-	memcpy(buf + 4 + 4, pathname, plen);
-	write(PATHSERVER_FD, buf, 4 + 4 + plen);
+	path_write_data(buf, &cmd, 4, pos);
+	path_write_data(buf, &replyfd, 4, pos);
+	path_write_data(buf, &plen, 4, pos);
+	path_write_data(buf, &pathname, plen, pos);
+
+	write(PATHSERVER_FD, buf, pos);
 	read(replyfd, &fd, 4);
 
 	return fd;
