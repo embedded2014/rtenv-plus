@@ -10,6 +10,13 @@ struct block_response {
     char *buf;
 };
 
+static struct file_operations block_ops = {
+	.readable = block_readable,
+	.writable = block_writable,
+	.read = block_read,
+	.write = block_write,
+};
+
 
 int block_driver_readable (struct block *block, struct file_request *request,
                            struct event_monitor *monitor)
@@ -194,10 +201,7 @@ int block_init(int fd, int driver_pid, struct file *files[],
     block->request_pid = 0;
     block->buzy = 0;
     block->pos = 0;
-	block->file.readable = block_readable;
-	block->file.writable = block_writable;
-	block->file.read = block_read;
-	block->file.write = block_write;
+	block->file.ops = &block_ops;
     files[fd] = &block->file;
     return 0;
 }

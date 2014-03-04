@@ -6,6 +6,13 @@
 
 
 
+static struct file_operations mq_ops = {
+	.readable = mq_readable,
+	.writable = mq_writable,
+	.read = mq_read,
+	.write = mq_write,
+};
+
 int mq_open(const char *name, int oflag)
 {
 	if (oflag & O_CREAT)
@@ -26,10 +33,7 @@ mq_init(int fd, int driver_pid, struct file *files[],
 
     pipe->start = 0;
     pipe->end = 0;
-	pipe->file.readable = mq_readable;
-	pipe->file.writable = mq_writable;
-	pipe->file.read = mq_read;
-	pipe->file.write = mq_write;
+	pipe->file.ops = &mq_ops;
     files[fd] = &pipe->file;
     return 0;
 }

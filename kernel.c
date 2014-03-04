@@ -738,9 +738,9 @@ int _read(struct file *file, struct file_request *request,
     struct task_control_block *task = request->task;
 
 	if (file) {
-	    switch (file->readable(file, request, monitor)) {
+	    switch (file->ops->readable(file, request, monitor)) {
 		    case FILE_ACCESS_ACCEPT: {
-			    int size = file->read(file, request, monitor);
+			    int size = file->ops->read(file, request, monitor);
 
 			    if (task) {
 			        task->stack->r0 = size;
@@ -782,9 +782,9 @@ int _write(struct file *file, struct file_request *request,
     struct task_control_block *task = request->task;
 
 	if (file) {
-	    switch (file->writable(file, request, monitor)) {
+	    switch (file->ops->writable(file, request, monitor)) {
 	        case FILE_ACCESS_ACCEPT: {
-	            int size = file->write(file, request, monitor);
+	            int size = file->ops->write(file, request, monitor);
 
 	            if (task) {
 	                task->stack->r0 = size;

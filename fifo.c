@@ -5,6 +5,13 @@
 
 
 
+static struct file_operations fifo_ops = {
+	.readable = fifo_readable,
+	.writable = fifo_writable,
+	.read = fifo_read,
+	.write = fifo_write,
+};
+
 int mkfifo(const char *pathname, int mode)
 {
 	mkfile(pathname, mode, S_IFIFO);
@@ -24,10 +31,7 @@ fifo_init(int fd, int driver_pid, struct file *files[],
 
     pipe->start = 0;
     pipe->end = 0;
-	pipe->file.readable = fifo_readable;
-	pipe->file.writable = fifo_writable;
-	pipe->file.read = fifo_read;
-	pipe->file.write = fifo_write;
+	pipe->file.ops = &fifo_ops;
     files[fd] = &pipe->file;
     return 0;
 }

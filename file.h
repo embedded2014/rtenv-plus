@@ -30,6 +30,10 @@ struct file_request {
 
 struct file {
     int fd;
+    struct file_operations *ops;
+};
+
+struct file_operations {
     int (*readable)(struct file*, struct file_request*, struct event_monitor *);
     int (*writable)(struct file*, struct file_request*, struct event_monitor *);
     int (*read)(struct file*, struct file_request*, struct event_monitor *);
