@@ -14,7 +14,7 @@ int mkfile(const char *pathname, int mode, int dev)
     int cmd = PATH_CMD_MKFILE;
 	unsigned int replyfd = getpid() + 3;
 	size_t plen = strlen(pathname)+1;
-	char buf[4+4+PATH_MAX+4];
+	char buf[4 + 4 + 4 + PATH_MAX + 4];
 	(void) mode;
 	int pos = 0;
 	int status = 0;
