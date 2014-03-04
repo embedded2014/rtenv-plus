@@ -665,7 +665,7 @@ void show_xxd(int argc, char *argv[])
 
             pos++;
 
-            if (pos % XXD_WIDTH) { /* end of line */
+            if (pos % XXD_WIDTH == 0) { /* end of line */
                 write(fdout, "  ", 3);
 
                 for (i = 0; i < XXD_WIDTH; i++) {
