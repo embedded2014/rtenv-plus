@@ -4,6 +4,12 @@
 #include "string.h"
 #include "syscall.h"
 
+struct mount {
+    int fs;
+    int dev;
+    char path[PATH_MAX];
+};
+
 /* 
  * pathserver assumes that all files are FIFOs that were registered
  * with mkfifo.  It also assumes a global tables of FDs shared by all
@@ -20,7 +26,7 @@ void pathserver()
 	int fs_fds[FS_LIMIT];
 	char fs_types[FS_LIMIT][FS_TYPE_MAX];
 	int nfs_types = 0;
-	char mounts[MOUNT_LIMIT][PATH_MAX];
+	struct mount mounts[MOUNT_LIMIT];
 	int nmounts = 0;
 	int i = 0;
 	int cmd = 0;
@@ -120,6 +126,8 @@ void pathserver()
 				    break;
 			    }
 
+                mounts[nmounts].fs = fs_fds[i];
+
 		        /* Search for device */
 			    for (i = 0; i < npaths; i++) {
 				    if (*paths[i] && strcmp(src, paths[i]) == 0) {
@@ -134,7 +142,8 @@ void pathserver()
 			    }
 
                 /* Store mount point */
-			    memcpy(mounts[nmounts], dst, dlen);
+                mounts[nmounts].dev = i + 3 + TASK_LIMIT;
+			    memcpy(mounts[nmounts].path, dst, dlen);
 			    nmounts++;
 
                 status = 0;
