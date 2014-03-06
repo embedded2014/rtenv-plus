@@ -20,7 +20,7 @@ int mkfifo(const char *pathname, int mode)
 
 int
 fifo_init(int fd, int driver_pid, struct file *files[],
-          struct memory_pool *memory_pool)
+          struct memory_pool *memory_pool, struct event_monitor *monitor)
 {
     struct pipe_ringbuffer *pipe;
 
@@ -33,6 +33,12 @@ fifo_init(int fd, int driver_pid, struct file *files[],
     pipe->end = 0;
 	pipe->file.ops = &fifo_ops;
     files[fd] = &pipe->file;
+
+    pipe->read_event = event_monitor_find_free(monitor);
+    event_monitor_register(monitor, pipe->read_event, pipe_read_release, files[fd]);
+
+    pipe->write_event = event_monitor_find_free(monitor);
+    event_monitor_register(monitor, pipe->write_event, pipe_write_release, files[fd]);
     return 0;
 }
 
@@ -50,6 +56,7 @@ fifo_readable (struct file *file, struct file_request *request,
 
 	if ((size_t)PIPE_LEN(*pipe) < request->size) {
 		/* Trying to read more than there is: block */
+		event_monitor_block(monitor, pipe->read_event, request->task);
 		return FILE_ACCESS_BLOCK;
 	}
 	return FILE_ACCESS_ACCEPT;
@@ -69,6 +76,7 @@ fifo_writable (struct file *file, struct file_request *request,
 	/* Preserve 1 byte to distiguish empty or full */
 	if ((size_t)PIPE_BUF - PIPE_LEN(*pipe) - 1 < request->size) {
 		/* Trying to write more than we have space for: block */
+	    event_monitor_block(monitor, pipe->write_event, request->task);
 		return FILE_ACCESS_BLOCK;
 	}
 	return FILE_ACCESS_ACCEPT;
@@ -86,6 +94,9 @@ fifo_read (struct file *file, struct file_request *request,
 	for (i = 0; i < request->size; i++) {
 		PIPE_POP(*pipe, request->buf[i]);
 	}
+
+    /* Prepared to write */
+	event_monitor_release(monitor, pipe->write_event);
 	return request->size;
 }
 
@@ -100,6 +111,9 @@ fifo_write (struct file *file, struct file_request *request,
 	/* Copy data into pipe */
 	for (i = 0; i < request->size; i++)
 		PIPE_PUSH(*pipe, request->buf[i]);
+
+    /* Prepared to read */
+	event_monitor_release(monitor, pipe->read_event);
 	return request->size;
 }
 

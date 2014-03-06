@@ -63,6 +63,7 @@ int block_driver_write (struct block *block, struct file_request *request,
     }
     block->transfer_len = len;
     block->buzy = 0;
+	event_monitor_release(monitor, block->event);
     return len;
 }
 
@@ -109,6 +110,7 @@ int block_request_readable (struct block *block, struct file_request *request,
         return FILE_ACCESS_ACCEPT;
     }
 
+	event_monitor_block(monitor, block->event, task);
     return FILE_ACCESS_BLOCK;
 }
 
@@ -160,6 +162,7 @@ int block_request_writable (struct block *block, struct file_request *request,
         return FILE_ACCESS_ACCEPT;
     }
 
+	event_monitor_block(monitor, block->event, task);
     return FILE_ACCESS_BLOCK;
 }
 
@@ -187,8 +190,24 @@ int block_request_write (struct block *block, struct file_request *request,
     return block->transfer_len;
 }
 
+int block_event_release(struct event_monitor *monitor, int event,
+                        struct task_control_block *task, void *data)
+{
+    struct file *file = data;
+    struct file_request *request = (void*)task->stack->r0;
+
+    switch (task->stack->r7) {
+        case 0x04:
+            return file_read(file, request, monitor);
+        case 0x03:
+            return file_write(file, request, monitor);
+        default:
+            return 0;
+    }
+}
+
 int block_init(int fd, int driver_pid, struct file *files[],
-               struct memory_pool *memory_pool)
+               struct memory_pool *memory_pool, struct event_monitor *monitor)
 {
     struct block *block;
 
@@ -203,7 +222,11 @@ int block_init(int fd, int driver_pid, struct file *files[],
     block->buzy = 0;
     block->pos = 0;
 	block->file.ops = &block_ops;
+    block->event = event_monitor_find_free(monitor);
     files[fd] = &block->file;
+
+    event_monitor_register(monitor, block->event, block_event_release, files[fd]);
+
     return 0;
 }
 

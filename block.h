@@ -11,6 +11,7 @@ struct block {
     struct file file;
     int driver_pid;
     struct file *driver_file;
+    int event;
 
     /* request */
     int request_pid;
@@ -31,7 +32,7 @@ struct block_request {
 };
 
 int block_init(int fd, int driver_pid, struct file *files[],
-               struct memory_pool *memory_pool);
+               struct memory_pool *memory_pool, struct event_monitor *monitor);
 int block_response(int fd, char *buf, int len);
 int block_readable (struct file *file, struct file_request *request,
                     struct event_monitor *monitor);

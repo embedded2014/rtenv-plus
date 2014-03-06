@@ -79,18 +79,13 @@ int file_read(struct file *file, struct file_request *request,
 	                task->status = TASK_READY;
 	            }
 
-			    /* Release writing requests */
-			    event_monitor_release(monitor, FILE_EVENT_WRITE(file->fd));
-
 			    return 1;
 		    }
 		    case FILE_ACCESS_BLOCK:
 			    if (task && task->status == TASK_READY) {
 	                task->status = TASK_WAIT_READ;
-
-	                event_monitor_block(monitor, FILE_EVENT_READ(file->fd),
-	                                    task);
 	            }
+
 	            return 0;
 		    case FILE_ACCESS_ERROR:
 		    default:
@@ -101,8 +96,6 @@ int file_read(struct file *file, struct file_request *request,
     if (task) {
         task->stack->r0 = -1;
         task->status = TASK_READY;
-
-	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
     }
 
     return -1;
@@ -123,18 +116,13 @@ int file_write(struct file *file, struct file_request *request,
 	                task->status = TASK_READY;
 	            }
 
-			    /* Release reading requests */
-			    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
-
 			    return 1;
 		    }
 		    case FILE_ACCESS_BLOCK:
 		        if (task && task->status == TASK_READY) {
 		            request->task->status = TASK_WAIT_WRITE;
-
-		            event_monitor_block(monitor, FILE_EVENT_WRITE(file->fd),
-		                                task);
 		        }
+
 		        return 0;
 		    case FILE_ACCESS_ERROR:
 		    default:
@@ -145,8 +133,6 @@ int file_write(struct file *file, struct file_request *request,
 	if (task) {
 	    task->stack->r0 = -1;
 	    task->status = TASK_READY;
-
-	    event_monitor_release(monitor, FILE_EVENT_READ(file->fd));
 	}
 
 	return -1;
@@ -159,13 +145,13 @@ file_mknod(int fd, int driver_pid, struct file *files[], int dev,
     int result;
 	switch(dev) {
 	case S_IFIFO:
-		result = fifo_init(fd, driver_pid, files, memory_pool);
+		result = fifo_init(fd, driver_pid, files, memory_pool, event_monitor);
 		break;
 	case S_IMSGQ:
-		result = mq_init(fd, driver_pid, files, memory_pool);
+		result = mq_init(fd, driver_pid, files, memory_pool, event_monitor);
 		break;
 	case S_IFBLK:
-	    result = block_init(fd, driver_pid, files, memory_pool);
+	    result = block_init(fd, driver_pid, files, memory_pool, event_monitor);
 	    break;
 	default:
 		result = -1;
@@ -173,11 +159,6 @@ file_mknod(int fd, int driver_pid, struct file *files[], int dev,
 
 	if (result == 0) {
 	    files[fd]->fd = fd;
-
-	    event_monitor_register(event_monitor, FILE_EVENT_READ(fd),
-	                           file_release, files[fd]);
-	    event_monitor_register(event_monitor, FILE_EVENT_WRITE(fd),
-	                           file_release, files[fd]);
     }
 
 	return result;

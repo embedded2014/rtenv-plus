@@ -12,6 +12,7 @@ typedef int (*event_monitor_handler)(struct event_monitor *monitor,
                                      void *data);
 
 struct event {
+    int registerd;
     int pending;
     event_monitor_handler handler;
     void *data;
@@ -26,6 +27,7 @@ struct event_monitor {
 void event_monitor_init(struct event_monitor *monitor,
                         struct event *events,
                         struct list *ready_list);
+int event_monitor_find_free(struct event_monitor *monitor);
 void event_monitor_register(struct event_monitor *monitor, int event,
                             event_monitor_handler handler, void *data);
 void event_monitor_block(struct event_monitor *monitor, int event,

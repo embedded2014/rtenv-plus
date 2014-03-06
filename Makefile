@@ -49,7 +49,7 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 		stm32_p103.c \
 		kernel.c \
 		memcpy.s string.c task.c memory-pool.c file.c fifo.c mqueue.c block.c \
-		path.c romdev.c event-monitor.c list.c \
+		path.c romdev.c event-monitor.c list.c pipe.c \
 		$(ROMDIR).o
 	$(CROSS_COMPILE)objcopy -Obinary main.elf main.bin
 	$(CROSS_COMPILE)objdump -S main.elf > main.list

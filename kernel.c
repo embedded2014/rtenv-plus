@@ -879,10 +879,10 @@ int main()
 			/* Enable interrupt */
 			NVIC_EnableIRQ(tasks[current_task].stack->r0);
 			/* Block task waiting for interrupt to happen */
-			tasks[current_task].status = TASK_WAIT_INTR;
 			event_monitor_block(&event_monitor,
 			                    INTR_EVENT(tasks[current_task].stack->r0),
 			                    &tasks[current_task]);
+			tasks[current_task].status = TASK_WAIT_INTR;
 			break;
 		case 0x6: /* getpriority */
 			{

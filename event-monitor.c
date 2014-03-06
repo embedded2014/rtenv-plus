@@ -13,6 +13,7 @@ void event_monitor_init(struct event_monitor *monitor,
     monitor->ready_list = ready_list;
 
     for (i = 0; i < EVENT_LIMIT; i++) {
+        events[i].registerd = 0;
         events[i].pending = 0;
         events[i].handler = 0;
         events[i].data = 0;
@@ -20,9 +21,21 @@ void event_monitor_init(struct event_monitor *monitor,
     }
 }
 
+int event_monitor_find_free(struct event_monitor *monitor)
+{
+    int i;
+    for (i = 0; i < EVENT_LIMIT && monitor->events[i].registerd; i++);
+
+    if (i == EVENT_LIMIT)
+        return -1;
+
+    return i;
+}
+
 void event_monitor_register(struct event_monitor *monitor, int event,
                             event_monitor_handler handler, void *data)
 {
+    monitor->events[event].registerd = 1;
     monitor->events[event].handler = handler;
     monitor->events[event].data = data;
 }
@@ -30,7 +43,8 @@ void event_monitor_register(struct event_monitor *monitor, int event,
 void event_monitor_block(struct event_monitor *monitor, int event,
                          struct task_control_block *task)
 {
-    list_push(&monitor->events[event].list, &task->list);
+    if (task->status == TASK_READY)
+        list_push(&monitor->events[event].list, &task->list);
 }
 
 void event_monitor_release(struct event_monitor *monitor, int event)

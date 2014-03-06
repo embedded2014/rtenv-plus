@@ -8,6 +8,8 @@ struct pipe_ringbuffer {
     struct file file;
 	int start;
 	int end;
+	int read_event;
+	int write_event;
 	char data[PIPE_BUF];
 };
 
@@ -40,5 +42,11 @@ struct pipe_ringbuffer {
 #define PIPE_POP(pipe, v)  RB_POP((pipe), PIPE_BUF, (v))
 #define PIPE_PEEK(pipe, v, i)  RB_PEEK((pipe), PIPE_BUF, (v), (i))
 #define PIPE_LEN(pipe)     (RB_LEN((pipe), PIPE_BUF))
+
+int pipe_read_release(struct event_monitor *monitor, int event,
+                      struct task_control_block *task, void *data);
+
+int pipe_write_release(struct event_monitor *monitor, int event,
+                       struct task_control_block *task, void *data);
 
 #endif
