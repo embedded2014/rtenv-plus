@@ -19,6 +19,7 @@
 #include "block.h"
 #include "romdev.h"
 #include "event-monitor.h"
+#include "romfs.h"
 
 #define MAX_CMDNAME 19
 #define MAX_ARGC 19
@@ -711,12 +712,15 @@ void first()
 
 	if (!fork()) setpriority(0, 0), pathserver();
 	if (!fork()) setpriority(0, 0), romdev_driver();
+	if (!fork()) setpriority(0, 0), romfs_server();
 	if (!fork()) setpriority(0, 0), serialout(USART2, USART2_IRQn);
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
 	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), serial_test_task();
 
 	setpriority(0, PRIORITY_LIMIT);
+
+	mount("/dev/rom0", "/", ROMFS_TYPE, 0);
 
 	while(1);
 }

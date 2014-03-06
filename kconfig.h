@@ -17,6 +17,8 @@
 #define FS_TYPE_MAX 8
 #define MOUNT_LIMIT 4
 
+#define ROMFS_FILE_LIMIT 8
+
 #define INTR_LIMIT 58 /* IRQn = [-15 ... 42] */
 #define EVENT_LIMIT (FILE_LIMIT * 2 + INTR_LIMIT + 1)
     /* Read and write event for each file, intr events and time event */
