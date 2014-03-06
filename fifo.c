@@ -10,6 +10,8 @@ static struct file_operations fifo_ops = {
 	.writable = fifo_writable,
 	.read = fifo_read,
 	.write = fifo_write,
+	.lseekable = NULL,
+	.lseek = NULL,
 };
 
 int mkfifo(const char *pathname, int mode)

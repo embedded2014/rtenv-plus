@@ -15,6 +15,8 @@ static struct file_operations block_ops = {
 	.writable = block_writable,
 	.read = block_read,
 	.write = block_write,
+	.lseekable = block_lseekable,
+	.lseek = block_lseek,
 };
 
 
@@ -29,6 +31,15 @@ int block_driver_readable (struct block *block, struct file_request *request,
 
 int block_driver_writable (struct block *block, struct file_request *request,
                            struct event_monitor *monitor)
+{
+    if (block->buzy)
+        return FILE_ACCESS_ACCEPT;
+    else
+        return FILE_ACCESS_ERROR;
+}
+
+int block_driver_lseekable (struct block *block, struct file_request *request,
+                            struct event_monitor *monitor)
 {
     if (block->buzy)
         return FILE_ACCESS_ACCEPT;
@@ -65,6 +76,15 @@ int block_driver_write (struct block *block, struct file_request *request,
     block->buzy = 0;
 	event_monitor_release(monitor, block->event);
     return len;
+}
+
+int block_driver_lseek (struct block *block, struct file_request *request,
+                        struct event_monitor *monitor)
+{
+    block->transfer_len = request->size;
+    block->buzy = 0;
+	event_monitor_release(monitor, block->event);
+    return request->size;
 }
 
 /*
@@ -166,6 +186,60 @@ int block_request_writable (struct block *block, struct file_request *request,
     return FILE_ACCESS_BLOCK;
 }
 
+int block_request_lseekable (struct block *block, struct file_request *request,
+                             struct event_monitor *monitor)
+{
+    struct task_control_block *task = request->task;
+
+    if (block->request_pid == 0) {
+        /* try to send request */
+        struct file *driver = block->driver_file;
+        int size = request->size;
+        if (size > BLOCK_BUF)
+            size = BLOCK_BUF;
+
+        int pos;
+        switch(request->whence) {
+            case SEEK_SET:
+                pos = 0;
+                break;
+            case SEEK_CUR:
+                pos = block->pos;
+                break;
+            case SEEK_END:
+                pos = -1;
+                break;
+            default:
+                return FILE_ACCESS_ERROR;
+        }
+
+        struct block_request block_request = {
+            .cmd = BLOCK_CMD_SEEK,
+            .task = task->pid,
+            .fd = block->file.fd,
+            .size = request->size,
+            .pos = pos,
+        };
+
+        struct file_request file_request = {
+            .task = NULL,
+            .buf = (char *)&block_request,
+            .size = sizeof(block_request),
+        };
+
+        if (file_write(driver, &file_request, monitor) == 1) {
+            block->request_pid = task->pid;
+            block->buzy = 1;
+        }
+    }
+    else if (block->request_pid == task->pid && !block->buzy) {
+        return FILE_ACCESS_ACCEPT;
+    }
+
+	event_monitor_block(monitor, block->event, task);
+    return FILE_ACCESS_BLOCK;
+}
+
 int block_request_read (struct block *block, struct file_request *request,
                         struct event_monitor *monitor)
 {
@@ -190,6 +264,17 @@ int block_request_write (struct block *block, struct file_request *request,
     return block->transfer_len;
 }
 
+int block_request_lseek (struct block *block, struct file_request *request,
+                         struct event_monitor *monitor)
+{
+    if (block->transfer_len >= 0) {
+        block->pos = block->transfer_len;
+    }
+
+    block->request_pid = 0;
+    return block->transfer_len;
+}
+
 int block_event_release(struct event_monitor *monitor, int event,
                         struct task_control_block *task, void *data)
 {
@@ -201,6 +286,8 @@ int block_event_release(struct event_monitor *monitor, int event,
             return file_read(file, request, monitor);
         case 0x03:
             return file_write(file, request, monitor);
+        case 0x0a:
+            return file_lseek(file, request, monitor);
         default:
             return 0;
     }
@@ -284,6 +371,30 @@ int block_write (struct file *file, struct file_request *request,
     }
     else {
         return block_request_write(block, request, monitor);
+    }
+}
+
+int block_lseekable (struct file *file, struct file_request *request,
+                     struct event_monitor *monitor)
+{
+    struct block *block = container_of(file, struct block, file);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_lseekable(block, request, monitor);
+    }
+    else {
+        return block_request_lseekable(block, request, monitor);
+    }
+}
+
+int block_lseek (struct file *file, struct file_request *request,
+                 struct event_monitor *monitor)
+{
+    struct block *block = container_of(file, struct block, file);
+    if (block->driver_pid == request->task->pid) {
+        return block_driver_lseek(block, request, monitor);
+    }
+    else {
+        return block_request_lseek(block, request, monitor);
     }
 }
 

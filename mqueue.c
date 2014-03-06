@@ -11,6 +11,8 @@ static struct file_operations mq_ops = {
 	.writable = mq_writable,
 	.read = mq_read,
 	.write = mq_write,
+	.lseekable = NULL,
+	.lseek = NULL,
 };
 
 int mq_open(const char *name, int oflag)

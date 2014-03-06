@@ -6,6 +6,7 @@
 
 #define BLOCK_CMD_READ 1
 #define BLOCK_CMD_WRITE 2
+#define BLOCK_CMD_SEEK 3
 
 struct block {
     struct file file;
@@ -20,14 +21,14 @@ struct block {
     char buf[BLOCK_BUF];
 
     /* response */
-    size_t transfer_len;
+    int transfer_len;
 };
 
 struct block_request {
     int cmd;
     int task;
     int fd;
-    size_t size;
+    int size;
     int pos;
 };
 
@@ -41,6 +42,10 @@ int block_writable (struct file *file, struct file_request *request,
 int block_read (struct file *file, struct file_request *request,
                 struct event_monitor *monitor);
 int block_write (struct file *file, struct file_request *request,
+                 struct event_monitor *monitor);
+int block_lseekable (struct file *file, struct file_request *request,
+                     struct event_monitor *monitor);
+int block_lseek (struct file *file, struct file_request *request,
                  struct event_monitor *monitor);
 
 #endif
