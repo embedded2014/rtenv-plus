@@ -99,6 +99,7 @@ void romfs_server()
 	                    status = path_register(request.path);
 
                         if (status != -1) {
+                            mknod(status, 0, S_IFREG);
 	                        files[nfiles].fd = status;
 	                        files[nfiles].device = request.device;
 	                        files[nfiles].start = pos + sizeof(entry);
