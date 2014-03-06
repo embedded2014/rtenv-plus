@@ -7,6 +7,7 @@
 #include "fifo.h"
 #include "mqueue.h"
 #include "block.h"
+#include "regfile.h"
 #include "path.h"
 
 int mkfile(const char *pathname, int mode, int dev)
@@ -152,6 +153,9 @@ file_mknod(int fd, int driver_pid, struct file *files[], int dev,
 		break;
 	case S_IFBLK:
 	    result = block_init(fd, driver_pid, files, memory_pool, event_monitor);
+	    break;
+	case S_IFREG:
+	    result = regfile_init(fd, driver_pid, files, memory_pool, event_monitor);
 	    break;
 	default:
 		result = -1;

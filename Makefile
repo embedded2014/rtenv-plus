@@ -20,7 +20,7 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 			utils.h string.c string.h task.c task.h \
 			memory-pool.c memory-pool.c file.c file.h pipe.h fifo.c fifo.h \
 			mqueue.c mqueue.h block.c block.h path.c path.h romdev.c romdev.h \
-			event-monitor.c event-monitor.h list.c list.h\
+			event-monitor.c event-monitor.h list.c list.h regfile.c regfile.h \
 			$(ROMDIR).o
 	$(CROSS_COMPILE)gcc \
 		-DUSER_NAME=\"$(USER)\" \
@@ -49,7 +49,7 @@ main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
 		stm32_p103.c \
 		kernel.c \
 		memcpy.s string.c task.c memory-pool.c file.c fifo.c mqueue.c block.c \
-		path.c romdev.c event-monitor.c list.c pipe.c \
+		path.c romdev.c event-monitor.c list.c pipe.c regfile.c \
 		$(ROMDIR).o
 	$(CROSS_COMPILE)objcopy -Obinary main.elf main.bin
 	$(CROSS_COMPILE)objdump -S main.elf > main.list

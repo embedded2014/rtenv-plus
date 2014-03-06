@@ -10,6 +10,7 @@
 #define S_IFIFO 1
 #define S_IMSGQ 2
 #define S_IFBLK 6
+#define S_IFREG 010
 
 /* file flags */
 #define O_CREAT 4

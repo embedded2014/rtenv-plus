@@ -12,6 +12,7 @@
 #define FILE_LIMIT (PIPE_LIMIT + FREG_LIMIT)
 #define MEM_LIMIT (2048)
 #define BLOCK_BUF 64
+#define REGFILE_BUF 64
 #define FS_LIMIT 8
 #define FS_TYPE_MAX 8
 #define MOUNT_LIMIT 4
