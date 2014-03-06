@@ -22,7 +22,7 @@ struct mount {
  */
 void pathserver()
 {
-	char paths[PIPE_LIMIT - TASK_LIMIT - 3][PATH_MAX];
+	char paths[FILE_LIMIT - TASK_LIMIT - 3][PATH_MAX];
 	int npaths = 0;
 	int fs_fds[FS_LIMIT];
 	char fs_types[FS_LIMIT][FS_TYPE_MAX];
