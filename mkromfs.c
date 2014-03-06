@@ -15,7 +15,7 @@
 
 #define ERR(err) (ERR_##err)
 
-#define PATH_LEN 63
+#define PATH_LEN 31
 #define BUF_SIZE 1024
 
 struct entry {
