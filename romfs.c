@@ -27,7 +27,7 @@ int romfs_open_recur(int device, char *path, int this, struct romfs_entry *entry
 {
     if (entry->isdir) {
         /* Iterate through children */
-        int pos = this + sizeof(entry);
+        int pos = this + sizeof(*entry);
         while (pos) {
             /* Get entry */
             lseek(device, pos, SEEK_SET);
