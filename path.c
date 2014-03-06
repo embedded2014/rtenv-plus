@@ -92,6 +92,7 @@ void pathserver()
 					    memcpy(request.path, &path[mlen], plen - mlen);
 					    write(mounts[i].fs, &request, sizeof(request));
 					    i = 0;
+					    break;
 				    }
 			    }
 
