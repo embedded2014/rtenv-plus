@@ -137,6 +137,7 @@ void romfs_server()
                             data_end = data_start + size;
                             if (data_end > files[i].start + files[i].len)
                                 data_end = files[i].start + files[i].len;
+                            break;
                         }
                     }
                     if (i >= nfiles) {
