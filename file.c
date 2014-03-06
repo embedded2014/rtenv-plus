@@ -163,3 +163,41 @@ file_mknod(int fd, int driver_pid, struct file *files[], int dev,
 
 	return result;
 }
+
+int file_lseek(struct file *file, struct file_request *request,
+               struct event_monitor *monitor)
+{
+    struct task_control_block *task = request->task;
+
+    if (file && file->ops->lseekable && file->ops->lseek) {
+        switch (file->ops->lseekable(file, request, monitor)) {
+            case FILE_ACCESS_ACCEPT: {
+                int status = file->ops->lseek(file, request, monitor);
+
+	            if (task) {
+	                task->stack->r0 = status;
+	                task->status = TASK_READY;
+	            }
+
+			    return 1;
+		    }
+		    case FILE_ACCESS_BLOCK:
+		        if (task && task->status == TASK_READY) {
+		            request->task->status = TASK_WAIT_WRITE;
+		        }
+
+		        return 0;
+		    case FILE_ACCESS_ERROR:
+		    default:
+		        ;
+        }
+    }
+
+	if (task) {
+	    task->stack->r0 = -1;
+	    task->status = TASK_READY;
+	}
+
+	return -1;
+}
+

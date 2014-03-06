@@ -14,6 +14,11 @@
 /* file flags */
 #define O_CREAT 4
 
+/* seek whence */
+#define SEEK_SET 1
+#define SEEK_CUR 2
+#define SEEK_END 3
+
 #define FILE_ACCESS_ACCEPT 1
 #define FILE_ACCESS_BLOCK  0
 #define FILE_ACCESS_ERROR -1
@@ -26,7 +31,8 @@
 struct file_request {
     struct task_control_block *task;
     char *buf;
-    size_t size;
+    int size;
+    int whence;
 };
 
 struct file {
@@ -39,6 +45,8 @@ struct file_operations {
     int (*writable)(struct file*, struct file_request*, struct event_monitor *);
     int (*read)(struct file*, struct file_request*, struct event_monitor *);
     int (*write)(struct file*, struct file_request*, struct event_monitor *);
+    int (*lseekable)(struct file*, struct file_request*, struct event_monitor *);
+    int (*lseek)(struct file*, struct file_request*, struct event_monitor *);
 };
 
 int mkfile(const char *pathname, int mode, int dev);
@@ -51,5 +59,7 @@ int file_write(struct file *file, struct file_request *request,
 int file_mknod(int fd, int driver_pid, struct file *files[], int dev,
                struct memory_pool *memory_pool,
                struct event_monitor *event_monitor);
+int file_lseek(struct file *file, struct file_request *request,
+               struct event_monitor *monitor);
 
 #endif

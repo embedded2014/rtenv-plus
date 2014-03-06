@@ -931,6 +931,27 @@ int main()
 			                        &tasks[current_task]);
 			}
 			break;
+		case 0xa: /* lseek */
+            {
+		        /* Check fd is valid */
+		        int fd = tasks[current_task].stack->r0;
+		        if (fd < FILE_LIMIT && files[fd]) {
+		            /* Prepare file request, store reference in r0 */
+		            requests[current_task].task = &tasks[current_task];
+		            requests[current_task].buf = NULL;
+		            requests[current_task].size = tasks[current_task].stack->r1;
+		            requests[current_task].whence = tasks[current_task].stack->r2;
+		            tasks[current_task].stack->r0 =
+		                (int)&requests[current_task];
+
+                    /* Read */
+			        file_lseek(files[fd], &requests[current_task],
+			                   &event_monitor);
+			    }
+			    else {
+			        tasks[current_task].stack->r0 = -1;
+			    }
+			} break;
 		default: /* Catch all interrupts */
 			if ((int)tasks[current_task].stack->r7 < 0) {
 				unsigned int intr = -tasks[current_task].stack->r7 - 16;
