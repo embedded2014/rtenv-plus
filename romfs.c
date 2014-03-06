@@ -91,6 +91,7 @@ void romfs_server()
 	        switch (cmd) {
 	            case FS_CMD_OPEN:
 	                device = request.device;
+	                from = request.from;
 	                pos = romfs_open(request.device, request.path, &entry);
 
 	                if (pos >= 0) { /* Found */
