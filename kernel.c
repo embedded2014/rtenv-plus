@@ -686,12 +686,11 @@ void show_xxd(int argc, char *argv[])
 
     if (pos % XXD_WIDTH != 0) { /* rest */
         /* align */
-        for (i = XXD_WIDTH; i > pos % XXD_WIDTH; i--) {
-            write(fdout, "  ", 3);
-
+        for (i = pos % XXD_WIDTH; i < XXD_WIDTH; i++) {
             if (i % 2 == 0) { /* whitespace for each 2 bytes */
                 write(fdout, " ", 2);
             }
+            write(fdout, "  ", 3);
         }
 
         write(fdout, "  ", 3);
