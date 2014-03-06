@@ -3,6 +3,7 @@
 #include "kconfig.h"
 #include "string.h"
 #include "syscall.h"
+#include "fs.h"
 
 struct mount {
     int fs;
@@ -74,7 +75,27 @@ void pathserver()
 				    }
 			    }
 
-			    if (i >= npaths) {
+			    if (i < npaths) {
+				    break;
+			    }
+
+		        /* Search for mount point */
+			    for (i = 0; i < nmounts; i++) {
+				    if (*mounts[i].path
+				            && strncmp(path, mounts[i].path,
+				                       strlen(mounts[i].path)) == 0) {
+				        int mlen = strlen(mounts[i].path);
+					    struct fs_request request;
+					    request.cmd = FS_CMD_OPEN;
+					    request.from = replyfd;
+					    request.device = mounts[i].dev;
+					    memcpy(request.path, &path[mlen], plen - mlen);
+					    write(mounts[i].fs, &request, sizeof(request));
+					    i = 0;
+				    }
+			    }
+
+			    if (i >= nmounts) {
 				    i = -1; /* Error: not found */
 				    write(replyfd, &i, 4);
 			    }
