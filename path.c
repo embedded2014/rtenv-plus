@@ -89,7 +89,8 @@ void pathserver()
 					    request.cmd = FS_CMD_OPEN;
 					    request.from = replyfd;
 					    request.device = mounts[i].dev;
-					    memcpy(request.path, &path[mlen], plen - mlen);
+					    request.pos = mlen; /* search starting position */
+					    memcpy(request.path, &path, plen);
 					    write(mounts[i].fs, &request, sizeof(request));
 					    i = 0;
 					    break;
