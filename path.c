@@ -128,11 +128,11 @@ void pathserver()
 			    char dst[PATH_MAX];
 			    char type[FS_TYPE_MAX];
 		        read(PATHSERVER_FD, &slen, 4);
-		        read(PATHSERVER_FD, src, plen);
+		        read(PATHSERVER_FD, src, slen);
 		        read(PATHSERVER_FD, &dlen, 4);
-		        read(PATHSERVER_FD, dst, plen);
+		        read(PATHSERVER_FD, dst, dlen);
 		        read(PATHSERVER_FD, &tlen, 4);
-		        read(PATHSERVER_FD, type, plen);
+		        read(PATHSERVER_FD, type, tlen);
 
 		        /* Search for filesystem types */
 			    for (i = 0; i < nfs_types; i++) {
