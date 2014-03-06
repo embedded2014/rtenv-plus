@@ -19,7 +19,7 @@ memcpy:
 	subcs   r2, r2, #2
 	strhcs  r3, [r0], #2		/* Save if 2 bytes unaligned */
 	ittt    mi
-	strbmi  r3, [r1] ,#1		/* Load if 1 byte unaligned */
+	ldrbmi  r3, [r1] ,#1		/* Load if 1 byte unaligned */
 	submi   r2, r2, #1
 	strbmi  r3, [r0] ,#1		/* Save if 1 byte unaligned */
 
