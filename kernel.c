@@ -708,8 +708,6 @@ void show_xxd(int argc, char *argv[])
 
 void first()
 {
-	setpriority(0, 0);
-
 	if (!fork()) setpriority(0, 0), pathserver();
 	if (!fork()) setpriority(0, 0), romdev_driver();
 	if (!fork()) setpriority(0, 0), romfs_server();
