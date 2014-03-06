@@ -31,7 +31,7 @@ int romfs_open_recur(int device, char *path, int this, struct romfs_entry *entry
         while (pos) {
             /* Get entry */
             lseek(device, pos, SEEK_SET);
-            read(device, &entry, sizeof(*entry));
+            read(device, entry, sizeof(*entry));
 
             /* Compare path */
             int len = strlen((char *)entry->name);
