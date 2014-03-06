@@ -199,7 +199,7 @@ int path_register(const char *pathname)
 
 int path_register_fs(const char *type)
 {
-    int cmd = PATH_CMD_REGISTER_PATH;
+    int cmd = PATH_CMD_REGISTER_FS;
 	unsigned int replyfd = getpid() + 3;
 	size_t plen = strlen(type)+1;
 	int fd = -1;
