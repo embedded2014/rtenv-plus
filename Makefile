@@ -1,5 +1,13 @@
+TARGET = main
+
 CROSS_COMPILE ?= arm-none-eabi-
 CC := $(CROSS_COMPILE)gcc
+CFLAGS = -fno-common -ffreestanding -O0 \
+         -gdwarf-2 -g3 -Wall -Werror \
+         -mcpu=cortex-m3 -mthumb \
+         -Wl,-Tmain.ld -nostartfiles \
+         -DUSER_NAME=\"$(USER)\"
+
 QEMU_STM32 ?= ../qemu_stm32/arm-softmmu/qemu-system-arm
 
 ARCH = CM3
@@ -12,61 +20,71 @@ STM32_LIB=$(LIBDIR)/libraries/STM32F10x_StdPeriph_Driver
 
 CMSIS_PLAT_SRC = $(CMSIS_LIB)/DeviceSupport/$(VENDOR)/$(PLAT)
 
-ROMDIR = rom0
 
-all: main.bin
+OUTDIR = build
+SRCDIR = src \
+         $(CMSIS_LIB)/CoreSupport \
+         $(STM32_LIB)/src \
+         $(CMSIS_PLAT_SRC)
+INCDIR = include \
+         $(CMSIS_LIB)/CoreSupport \
+         $(STM32_LIB)/inc \
+         $(CMSIS_PLAT_SRC)
+INCLUDES = $(addprefix -I,$(INCDIR))
+DATDIR = data
+ROMDIR = $(DATDIR)/rom0
+TOOLDIR = tool
 
-main.bin: kernel.c context_switch.s syscall.s syscall.h kconfig.h \
-			utils.h string.c string.h task.c task.h \
-			memory-pool.c memory-pool.c file.c file.h pipe.h fifo.c fifo.h \
-			mqueue.c mqueue.h block.c block.h path.c path.h romdev.c romdev.h \
-			event-monitor.c event-monitor.h list.c list.h regfile.c regfile.h \
-			romfs.c romfs.h \
-			$(ROMDIR).o
-	$(CROSS_COMPILE)gcc \
-		-DUSER_NAME=\"$(USER)\" \
-		-Wl,-Tmain.ld,-Map=main.map -nostartfiles \
-		-I . \
-		-I$(LIBDIR)/libraries/CMSIS/CM3/CoreSupport \
-		-I$(LIBDIR)/libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x \
-		-I$(CMSIS_LIB)/CM3/DeviceSupport/ST/STM32F10x \
-		-I$(LIBDIR)/libraries/STM32F10x_StdPeriph_Driver/inc \
-		-fno-common -ffreestanding -O0 \
-		-gdwarf-2 -g3 -Wall -Werror \
-		-mcpu=cortex-m3 -mthumb \
-		-o main.elf \
-		\
-		$(CMSIS_LIB)/CoreSupport/core_cm3.c \
-		$(CMSIS_PLAT_SRC)/system_stm32f10x.c \
-		$(CMSIS_PLAT_SRC)/startup/gcc_ride7/startup_stm32f10x_md.s \
-		$(STM32_LIB)/src/stm32f10x_rcc.c \
-		$(STM32_LIB)/src/stm32f10x_gpio.c \
-		$(STM32_LIB)/src/stm32f10x_usart.c \
-		$(STM32_LIB)/src/stm32f10x_exti.c \
-		$(STM32_LIB)/src/misc.c \
-		\
-		context_switch.s \
-		syscall.s \
-		stm32_p103.c \
-		kernel.c \
-		memcpy.s string.c task.c memory-pool.c file.c fifo.c mqueue.c block.c \
-		path.c romdev.c event-monitor.c list.c pipe.c regfile.c romfs.c \
-		$(ROMDIR).o
-	$(CROSS_COMPILE)objcopy -Obinary main.elf main.bin
-	$(CROSS_COMPILE)objdump -S main.elf > main.list
+SRC = $(wildcard $(addsuffix /*.c,$(SRCDIR))) \
+      $(wildcard $(addsuffix /*.s,$(SRCDIR))) \
+      $(CMSIS_PLAT_SRC)/startup/gcc_ride7/startup_stm32f10x_md.s
+OBJ := $(addprefix $(OUTDIR)/,$(patsubst %.s,%.o,$(SRC:.c=.o)))
+DEP = $(OBJ:.o=.o.d)
+DAT = $(OUTDIR)/$(DATDIR)/rom0.o
 
-$(ROMDIR).o: $(ROMDIR).bin
-	$(CROSS_COMPILE)objcopy -I binary -O elf32-littlearm -B arm \
+all: $(OUTDIR)/$(TARGET).bin $(OUTDIR)/$(TARGET).lst
+
+$(OUTDIR)/$(TARGET).bin: $(OUTDIR)/$(TARGET).elf
+	@echo "    OBJCOPY "$@
+	@$(CROSS_COMPILE)objcopy -Obinary $< $@
+
+$(OUTDIR)/$(TARGET).lst: $(OUTDIR)/$(TARGET).elf
+	@echo "    LIST    "$@
+	@$(CROSS_COMPILE)objdump -S $< > $@
+
+$(OUTDIR)/$(TARGET).elf: $(OBJ) $(DAT)
+	@echo "    LD      "$@
+	@echo "    MAP     "$(OUTDIR)/$(TARGET).map
+	@$(CROSS_COMPILE)gcc $(CFLAGS) -Wl,-Map=$(OUTDIR)/$(TARGET).map -o $@ $^
+
+$(OUTDIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "    CC      "$@
+	@$(CROSS_COMPILE)gcc $(CFLAGS) -MMD -MF $@.d -o $@ -c $(INCLUDES) $<
+
+$(OUTDIR)/%.o: %.s
+	@mkdir -p $(dir $@)
+	@echo "    CC      "$@
+	@$(CROSS_COMPILE)gcc $(CFLAGS) -MMD -MF $@.d -o $@ -c $(INCLUDES) $<
+
+$(OUTDIR)/$(ROMDIR).o: $(OUTDIR)/$(ROMDIR).bin
+	@mkdir -p $(dir $@)
+	@echo "    OBJCOPY "$@
+	@$(CROSS_COMPILE)objcopy -I binary -O elf32-littlearm -B arm \
 		--prefix-sections '.rom' $< $@
 
-$(ROMDIR).bin: $(ROMDIR) mkromfs
-	./mkromfs -d $< -o $@
+$(OUTDIR)/$(ROMDIR).bin: $(ROMDIR) $(OUTDIR)/$(TOOLDIR)/mkromfs
+	@mkdir -p $(dir $@)
+	@echo "    MKROMFS "$@
+	@$(OUTDIR)/$(TOOLDIR)/mkromfs -d $< -o $@
 
 $(ROMDIR):
-	mkdir -p $(ROMDIR)
+	@mkdir -p $@
 
-mkromfs: mkromfs.c
-	gcc -o mkromfs mkromfs.c
+$(OUTDIR)/%/mkromfs: %/mkromfs.c
+	@mkdir -p $(dir $@)
+	@echo "    CC      "$@
+	@gcc -Wall -o $@ $^
 
 qemu: main.bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
@@ -116,5 +134,6 @@ qemuauto_remote: main.bin gdbscript
 	sleep 5
 
 clean:
-	rm -f *.elf *.bin *.list *.map *.o
-	rm -rf mkromfs
+	rm -rf $(OUTDIR)
+
+-include $(DEP)
