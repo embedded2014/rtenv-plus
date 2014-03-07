@@ -40,8 +40,10 @@ OBJ := $(addprefix $(OUTDIR)/,$(patsubst %.s,%.o,$(SRC:.c=.o)))
 DEP = $(OBJ:.o=.o.d)
 DAT =
 
-include romfs.mk
-include qemu.mk
+MAKDIR = mk
+MAK = $(wildcard $(MAKDIR)/*.mk)
+
+include $(MAK)
 
 all: $(OUTDIR)/$(TARGET).bin $(OUTDIR)/$(TARGET).lst
 
