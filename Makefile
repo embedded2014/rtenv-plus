@@ -1,4 +1,5 @@
 TARGET = main
+.DEFAULT_GOAL = all
 
 CROSS_COMPILE ?= arm-none-eabi-
 CC := $(CROSS_COMPILE)gcc
@@ -32,7 +33,6 @@ INCDIR = include \
          $(CMSIS_PLAT_SRC)
 INCLUDES = $(addprefix -I,$(INCDIR))
 DATDIR = data
-ROMDIR = $(DATDIR)/rom0
 TOOLDIR = tool
 
 SRC = $(wildcard $(addsuffix /*.c,$(SRCDIR))) \
@@ -40,7 +40,9 @@ SRC = $(wildcard $(addsuffix /*.c,$(SRCDIR))) \
       $(CMSIS_PLAT_SRC)/startup/gcc_ride7/startup_stm32f10x_md.s
 OBJ := $(addprefix $(OUTDIR)/,$(patsubst %.s,%.o,$(SRC:.c=.o)))
 DEP = $(OBJ:.o=.o.d)
-DAT = $(OUTDIR)/$(DATDIR)/rom0.o
+DAT =
+
+include romfs.mk
 
 all: $(OUTDIR)/$(TARGET).bin $(OUTDIR)/$(TARGET).lst
 
@@ -66,25 +68,6 @@ $(OUTDIR)/%.o: %.s
 	@mkdir -p $(dir $@)
 	@echo "    CC      "$@
 	@$(CROSS_COMPILE)gcc $(CFLAGS) -MMD -MF $@.d -o $@ -c $(INCLUDES) $<
-
-$(OUTDIR)/$(ROMDIR).o: $(OUTDIR)/$(ROMDIR).bin
-	@mkdir -p $(dir $@)
-	@echo "    OBJCOPY "$@
-	@$(CROSS_COMPILE)objcopy -I binary -O elf32-littlearm -B arm \
-		--prefix-sections '.rom' $< $@
-
-$(OUTDIR)/$(ROMDIR).bin: $(ROMDIR) $(OUTDIR)/$(TOOLDIR)/mkromfs
-	@mkdir -p $(dir $@)
-	@echo "    MKROMFS "$@
-	@$(OUTDIR)/$(TOOLDIR)/mkromfs -d $< -o $@
-
-$(ROMDIR):
-	@mkdir -p $@
-
-$(OUTDIR)/%/mkromfs: %/mkromfs.c
-	@mkdir -p $(dir $@)
-	@echo "    CC      "$@
-	@gcc -Wall -o $@ $^
 
 qemu: main.bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
