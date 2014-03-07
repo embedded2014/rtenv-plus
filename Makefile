@@ -9,8 +9,6 @@ CFLAGS = -fno-common -ffreestanding -O0 \
          -Wl,-Tmain.ld -nostartfiles \
          -DUSER_NAME=\"$(USER)\"
 
-QEMU_STM32 ?= ../qemu_stm32/arm-softmmu/qemu-system-arm
-
 ARCH = CM3
 VENDOR = ST
 PLAT = STM32F10x
@@ -43,6 +41,7 @@ DEP = $(OBJ:.o=.o.d)
 DAT =
 
 include romfs.mk
+include qemu.mk
 
 all: $(OUTDIR)/$(TARGET).bin $(OUTDIR)/$(TARGET).lst
 
@@ -68,53 +67,6 @@ $(OUTDIR)/%.o: %.s
 	@mkdir -p $(dir $@)
 	@echo "    CC      "$@
 	@$(CROSS_COMPILE)gcc $(CFLAGS) -MMD -MF $@.d -o $@ -c $(INCLUDES) $<
-
-qemu: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 \
-		-monitor stdio \
-		-kernel $(OUTDIR)/$(TARGET).bin
-
-qemudbg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 \
-		-monitor stdio \
-		-gdb tcp::3333 -S \
-		-kernel $(OUTDIR)/$(TARGET).bin
-
-
-qemu_remote: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 -kernel $(OUTDIR)/$(TARGET).bin -vnc :1
-
-qemudbg_remote: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 \
-		-gdb tcp::3333 -S \
-		-kernel $(OUTDIR)/$(TARGET).bin \
-		-vnc :1
-
-qemu_remote_bg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 \
-		-kernel $(OUTDIR)/$(TARGET).bin \
-		-vnc :1 &
-
-qemudbg_remote_bg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 \
-		-gdb tcp::3333 -S \
-		-kernel $(OUTDIR)/$(TARGET).bin \
-		-vnc :1 &
-
-emu: $(OUTDIR)/$(TARGET).bin
-	bash $(TOOLDIR)/emulate.sh $(OUTDIR)/$(TARGET).bin
-
-qemuauto: $(OUTDIR)/$(TARGET).bin $(TOOLDIR)gdbscript
-	bash $(TOOLDIR)emulate.sh $(OUTDIR)/$(TARGET).bin &
-	sleep 1
-	$(CROSS_COMPILE)gdb -x gdbscript&
-	sleep 5
-
-qemuauto_remote: $(OUTDIR)/$(TARGET).bin $(TOOLDIR)gdbscript
-	bash $(TOOLDIR)emulate_remote.sh $(OUTDIR)/$(TARGET).bin &
-	sleep 1
-	$(CROSS_COMPILE)gdb -x gdbscript&
-	sleep 5
 
 clean:
 	rm -rf $(OUTDIR)
