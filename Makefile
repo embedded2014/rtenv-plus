@@ -69,49 +69,49 @@ $(OUTDIR)/%.o: %.s
 	@echo "    CC      "$@
 	@$(CROSS_COMPILE)gcc $(CFLAGS) -MMD -MF $@.d -o $@ -c $(INCLUDES) $<
 
-qemu: main.bin $(QEMU_STM32)
+qemu: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
 		-monitor stdio \
-		-kernel main.bin
+		-kernel $(OUTDIR)/$(TARGET).bin
 
-qemudbg: main.bin $(QEMU_STM32)
+qemudbg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
 		-monitor stdio \
 		-gdb tcp::3333 -S \
-		-kernel main.bin
+		-kernel $(OUTDIR)/$(TARGET).bin
 
 
-qemu_remote: main.bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 -kernel main.bin -vnc :1
+qemu_remote: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
+	$(QEMU_STM32) -M stm32-p103 -kernel $(OUTDIR)/$(TARGET).bin -vnc :1
 
-qemudbg_remote: main.bin $(QEMU_STM32)
+qemudbg_remote: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
 		-gdb tcp::3333 -S \
-		-kernel main.bin \
+		-kernel $(OUTDIR)/$(TARGET).bin \
 		-vnc :1
 
-qemu_remote_bg: main.bin $(QEMU_STM32)
+qemu_remote_bg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
-		-kernel main.bin \
+		-kernel $(OUTDIR)/$(TARGET).bin \
 		-vnc :1 &
 
-qemudbg_remote_bg: main.bin $(QEMU_STM32)
+qemudbg_remote_bg: $(OUTDIR)/$(TARGET).bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
 		-gdb tcp::3333 -S \
-		-kernel main.bin \
+		-kernel $(OUTDIR)/$(TARGET).bin \
 		-vnc :1 &
 
-emu: main.bin
-	bash emulate.sh main.bin
+emu: $(OUTDIR)/$(TARGET).bin
+	bash $(TOOLDIR)/emulate.sh $(OUTDIR)/$(TARGET).bin
 
-qemuauto: main.bin gdbscript
-	bash emulate.sh main.bin &
+qemuauto: $(OUTDIR)/$(TARGET).bin $(TOOLDIR)gdbscript
+	bash $(TOOLDIR)emulate.sh $(OUTDIR)/$(TARGET).bin &
 	sleep 1
 	$(CROSS_COMPILE)gdb -x gdbscript&
 	sleep 5
 
-qemuauto_remote: main.bin gdbscript
-	bash emulate_remote.sh main.bin &
+qemuauto_remote: $(OUTDIR)/$(TARGET).bin $(TOOLDIR)gdbscript
+	bash $(TOOLDIR)emulate_remote.sh $(OUTDIR)/$(TARGET).bin &
 	sleep 1
 	$(CROSS_COMPILE)gdb -x gdbscript&
 	sleep 5
