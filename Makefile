@@ -69,10 +69,13 @@ mkromfs: mkromfs.c
 	gcc -o mkromfs mkromfs.c
 
 qemu: main.bin $(QEMU_STM32)
-	$(QEMU_STM32) -M stm32-p103 -kernel main.bin
+	$(QEMU_STM32) -M stm32-p103 \
+		-monitor stdio \
+		-kernel main.bin
 
 qemudbg: main.bin $(QEMU_STM32)
 	$(QEMU_STM32) -M stm32-p103 \
+		-monitor stdio \
 		-gdb tcp::3333 -S \
 		-kernel main.bin
 
