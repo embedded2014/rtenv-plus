@@ -1,0 +1,9 @@
+What's New in rtenv GIT
+-------------------------------------------------------------------
+* ROM file system offers a read-only file system during compilation
+* Various build system improvements
+* Fix memcpy error
+* Support of block devices
+* Fix of memory configuration
+* Introduce event monitor technique to handle interrupts
+* Efficient I/O encapsulation
