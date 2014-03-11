@@ -3,7 +3,6 @@ MEMORY
 {
   FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K
   RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 20K
-
 }
 
 SECTIONS
@@ -22,11 +21,11 @@ SECTIONS
 	} >FLASH
 
 	/* Initialized data will initially be loaded in FLASH at the end of the .text section. */
-    .data : AT (_sidata)
-    {
+	.data : AT (_sidata)
+	{
 		_sdata = .;
 		*(.data)		/* Initialized data */
-        *(.data*)
+		*(.data*)
 		_edata = .;
 	} >RAM
 
@@ -37,4 +36,4 @@ SECTIONS
 	} >RAM
 
     _estack = ORIGIN(RAM) + LENGTH(RAM);
- }
+}
